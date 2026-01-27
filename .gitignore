@@ -55,3 +55,6 @@ htmlcov/
 # Raster files (generated)
 *.tif
 *.npy
+
+# Python version
+.python-version
