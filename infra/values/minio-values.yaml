@@ -1,0 +1,42 @@
+# MinIO Helm Chart Values
+# S3-compatible object storage for satellite imagery
+
+# Authentication
+rootUser: ${minio_root_user}
+rootPassword: ${minio_root_password}
+
+# Single node mode for development
+mode: standalone
+
+# Persistence
+persistence:
+  enabled: true
+  size: ${minio_storage_size}
+
+# Resources
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "1Gi"
+    cpu: "500m"
+
+# Service configuration
+service:
+  type: NodePort
+  port: 9000
+
+# Console service
+consoleService:
+  type: NodePort
+  port: 9001
+
+# Create default buckets
+buckets:
+  - name: raw-imagery
+    policy: none
+    purge: false
+  - name: processed-data
+    policy: none
+    purge: false
