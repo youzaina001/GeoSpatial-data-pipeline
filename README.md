@@ -187,7 +187,7 @@ Environment variables (set in Terraform or manually):
 
 | Technology     | Version | Documentation                                                                    |
 | -------------- | ------- | -------------------------------------------------------------------------------- |
-| Apache Airflow | 2.8.1   | [docs.apache.org/airflow](https://airflow.apache.org/docs/apache-airflow/2.8.1/) |
+| Apache Airflow | 3.0.2   | [docs.apache.org/airflow](https://airflow.apache.org/docs/apache-airflow/3.0.2/) |
 | Kubernetes     | 1.28+   | [kubernetes.io/docs](https://kubernetes.io/docs/home/)                           |
 | Terraform      | ≥1.0.0  | [terraform.io/docs](https://developer.hashicorp.com/terraform/docs)              |
 | MinIO          | Latest  | [min.io/docs](https://docs.min.io/enterprise/aistor-object-store/)                    |
@@ -197,7 +197,7 @@ Environment variables (set in Terraform or manually):
 
 | Chart          | Version | Source                                                                                             |
 | -------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| Apache Airflow | 1.13.1  | [airflow.apache.org/docs/helm-chart](https://airflow.apache.org/docs/helm-chart/stable/index.html) |
+| Apache Airflow | 1.18.0  | [airflow.apache.org/docs/helm-chart](https://airflow.apache.org/docs/helm-chart/stable/index.html) |
 | MinIO          | 5.0.15  | [github.com/minio/minio/helm](https://github.com/minio/minio/tree/master/helm/minio)               |
 
 ### Python Dependencies
@@ -206,7 +206,7 @@ Environment variables (set in Terraform or manually):
 | -------------- | ------- | ---------------------- |
 | boto3          | ≥1.34.0 | S3/MinIO client        |
 | numpy          | ≥1.26.0 | Raster data processing |
-| apache-airflow | 2.8.1   | Workflow orchestration |
+| apache-airflow | 3.0.0   | Workflow orchestration |
 
 ### Terraform Providers
 

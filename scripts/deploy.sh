@@ -68,38 +68,23 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     
     # Wait for MinIO
     echo "Waiting for MinIO..."
-    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=minio -n minio --timeout=300s || true
+    kubectl wait --for=condition=ready pod -l app=minio -n minio --timeout=300s || true
     
-    # Wait for Airflow Postgres to be running (needed for initialization)
+    # Wait for Airflow Postgres to be running
     echo "Waiting for Postgres..."
-    kubectl wait --for=condition=ready pod -l component=postgresql -n airflow --timeout=300s || true
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgresql -n airflow --timeout=300s || true
 
-    # Wait for Airflow webserver (might be crashing if DB not init)
-    # We don't wait for 'ready' yet because it might fail readiness probe without DB
+    # Wait for all Airflow pods to be scheduled
     echo "Waiting for Airflow pods to be scheduled..."
     kubectl wait --for=condition=podscheduled pod -l release=airflow -n airflow --timeout=300s || true
     
-    echo ""
-    echo "Ensuring Airflow Database is initialized..."
-    # Helper to check if DB is initialized (simplistic check: try to list users)
-    # If not, run migrate
+    # Wait for Airflow API server to be ready
+    echo "Waiting for Airflow API Server to be ready..."
+    kubectl wait --for=condition=ready pod -l component=api-server -n airflow --timeout=300s || true
     
-    # We run a temporary pod to check/migrate because the actual pods might be in CrashLoopBackOff
-    echo "Running database migrations (this may take a minute)..."
-    kubectl run init-db-check -n airflow --rm -i --restart=Never \
-      --image=apache/airflow:2.8.1-python3.11 \
-      --env="AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql://postgres:postgres@airflow-postgresql.airflow:5432/postgres?sslmode=disable" \
-      --command -- airflow db migrate
-      
-    echo "Creating admin user if not exists..."
-    kubectl run create-user-check -n airflow --rm -i --restart=Never \
-      --image=apache/airflow:2.8.1-python3.11 \
-      --env="AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql://postgres:postgres@airflow-postgresql.airflow:5432/postgres?sslmode=disable" \
-      --command -- airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin || true
-
-    # Now wait for proper webserver readiness
-    echo "Waiting for Airflow Webserver to be ready..."
-    kubectl wait --for=condition=ready pod -l component=webserver -n airflow --timeout=300s || true
+    # Wait for DAG processor to be ready
+    echo "Waiting for Airflow DAG Processor to be ready..."
+    kubectl wait --for=condition=ready pod -l component=dag-processor -n airflow --timeout=300s || true
     
     echo ""
     echo "Pod status:"

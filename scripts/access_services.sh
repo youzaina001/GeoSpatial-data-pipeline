@@ -39,11 +39,11 @@ echo "Credentials: minioadmin / minioadmin"
 echo ""
 
 echo "Airflow Webserver:"
-echo "URL: $(get_service_url airflow-webserver airflow 2>/dev/null || echo 'Run: minikube service airflow-webserver -n airflow')"
+echo "URL: $(get_service_url airflow-api-server airflow 2>/dev/null || echo 'Run: minikube service airflow-api-server -n airflow')"
 echo "Credentials: admin / admin"
 echo ""
 
 echo "Quick access commands:"
 echo "minikube service minio-console -n minio"
-echo "minikube service airflow-webserver -n airflow"
+echo "minikube service airflow-api-server -n airflow"
 echo ""

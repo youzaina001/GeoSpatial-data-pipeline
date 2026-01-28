@@ -8,7 +8,7 @@ executor: KubernetesExecutor
 images:
   airflow:
     repository: apache/airflow
-    tag: "2.8.1-python3.11"
+    tag: "3.0.2-python3.11"
 
 # Fernet key for encryption
 fernetKey: ${airflow_fernet_key}
@@ -20,7 +20,7 @@ config:
   kubernetes_executor:
     namespace: ${airflow_namespace}
     worker_container_repository: apache/airflow
-    worker_container_tag: "2.8.1-python3.11"
+    worker_container_tag: "3.0.2-python3.11"
     delete_worker_pods: "True"
     delete_worker_pods_on_failure: "False"
 
@@ -208,6 +208,62 @@ webserver:
           cp /src/services___init__.py /opt/airflow/hydrosat/services/__init__.py
           cp /src/services__ingestion.py /opt/airflow/hydrosat/services/ingestion.py
           cp /src/services__processing.py /opt/airflow/hydrosat/services/processing.py
+      volumeMounts:
+        - name: hydrosat-configmap
+          mountPath: /src
+          readOnly: true
+        - name: hydrosat-package
+          mountPath: /opt/airflow/hydrosat
+
+# Dag Processor configuration (Airflow 3.x)
+dagProcessor:
+  enabled: true
+
+  extraVolumes:
+    - name: dags-volume
+      configMap:
+        name: ${dags_configmap_name}
+    - name: hydrosat-configmap
+      configMap:
+        name: ${hydrosat_configmap_name}
+    - name: hydrosat-package
+      emptyDir: {}
+
+  extraVolumeMounts:
+    - name: dags-volume
+      mountPath: /opt/airflow/dags/satellite_ingestion_dag.py
+      subPath: satellite_ingestion_dag.py
+      readOnly: true
+    - name: dags-volume
+      mountPath: /opt/airflow/dags/field_processing_dag.py
+      subPath: field_processing_dag.py
+      readOnly: true
+    - name: hydrosat-package
+      mountPath: /opt/airflow/hydrosat
+      readOnly: false
+
+  extraInitContainers:
+    - name: init-hydrosat
+      image: busybox:1.36
+      command: ["sh", "-c"]
+      args:
+        - |
+          set -e
+          echo "Initializing hydrosat package structure for dag-processor..."
+          mkdir -p /opt/airflow/hydrosat/generators
+          mkdir -p /opt/airflow/hydrosat/clients
+          mkdir -p /opt/airflow/hydrosat/services
+          cp /src/__init__.py /opt/airflow/hydrosat/__init__.py
+          cp /src/config.py /opt/airflow/hydrosat/config.py
+          cp /src/generators___init__.py /opt/airflow/hydrosat/generators/__init__.py
+          cp /src/generators__satellite_data.py /opt/airflow/hydrosat/generators/satellite_data.py
+          cp /src/generators__field_data.py /opt/airflow/hydrosat/generators/field_data.py
+          cp /src/clients___init__.py /opt/airflow/hydrosat/clients/__init__.py
+          cp /src/clients__storage.py /opt/airflow/hydrosat/clients/storage.py
+          cp /src/services___init__.py /opt/airflow/hydrosat/services/__init__.py
+          cp /src/services__ingestion.py /opt/airflow/hydrosat/services/ingestion.py
+          cp /src/services__processing.py /opt/airflow/hydrosat/services/processing.py
+          echo "Package structure initialized successfully"
       volumeMounts:
         - name: hydrosat-configmap
           mountPath: /src

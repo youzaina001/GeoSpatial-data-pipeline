@@ -41,7 +41,7 @@ resource "helm_release" "airflow" {
   namespace  = kubernetes_namespace.airflow.metadata[0].name
   repository = "https://airflow.apache.org"
   chart      = "airflow"
-  version    = "1.13.1"
+  version    = "1.18.0"
 
   # Don't wait for pods - deploy script handles DB migration and pod readiness
   wait    = false
@@ -67,4 +67,3 @@ resource "helm_release" "airflow" {
     kubernetes_config_map.hydrosat_package,
   ]
 }
-
