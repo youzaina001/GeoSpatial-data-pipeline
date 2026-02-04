@@ -36,10 +36,10 @@ workers:
     - name: dags-volume
       configMap:
         name: ${dags_configmap_name}
-    - name: hydrosat-configmap
+    - name: geopipeline-configmap
       configMap:
-        name: ${hydrosat_configmap_name}
-    - name: hydrosat-package
+        name: ${geopipeline_configmap_name}
+    - name: geopipeline-package
       emptyDir: {}
 
   extraVolumeMounts:
@@ -51,36 +51,36 @@ workers:
       mountPath: /opt/airflow/dags/field_processing_dag.py
       subPath: field_processing_dag.py
       readOnly: true
-    - name: hydrosat-package
-      mountPath: /opt/airflow/hydrosat
+    - name: geopipeline-package
+      mountPath: /opt/airflow/geopipeline
       readOnly: false
 
   extraInitContainers:
-    - name: init-hydrosat
+    - name: init-geopipeline
       image: busybox:1.36
       command: ["sh", "-c"]
       args:
         - |
           set -e
-          mkdir -p /opt/airflow/hydrosat/generators
-          mkdir -p /opt/airflow/hydrosat/clients
-          mkdir -p /opt/airflow/hydrosat/services
-          cp /src/__init__.py /opt/airflow/hydrosat/__init__.py
-          cp /src/config.py /opt/airflow/hydrosat/config.py
-          cp /src/generators___init__.py /opt/airflow/hydrosat/generators/__init__.py
-          cp /src/generators__satellite_data.py /opt/airflow/hydrosat/generators/satellite_data.py
-          cp /src/generators__field_data.py /opt/airflow/hydrosat/generators/field_data.py
-          cp /src/clients___init__.py /opt/airflow/hydrosat/clients/__init__.py
-          cp /src/clients__storage.py /opt/airflow/hydrosat/clients/storage.py
-          cp /src/services___init__.py /opt/airflow/hydrosat/services/__init__.py
-          cp /src/services__ingestion.py /opt/airflow/hydrosat/services/ingestion.py
-          cp /src/services__processing.py /opt/airflow/hydrosat/services/processing.py
+          mkdir -p /opt/airflow/geopipeline/generators
+          mkdir -p /opt/airflow/geopipeline/clients
+          mkdir -p /opt/airflow/geopipeline/services
+          cp /src/__init__.py /opt/airflow/geopipeline/__init__.py
+          cp /src/config.py /opt/airflow/geopipeline/config.py
+          cp /src/generators___init__.py /opt/airflow/geopipeline/generators/__init__.py
+          cp /src/generators__satellite_data.py /opt/airflow/geopipeline/generators/satellite_data.py
+          cp /src/generators__field_data.py /opt/airflow/geopipeline/generators/field_data.py
+          cp /src/clients___init__.py /opt/airflow/geopipeline/clients/__init__.py
+          cp /src/clients__storage.py /opt/airflow/geopipeline/clients/storage.py
+          cp /src/services___init__.py /opt/airflow/geopipeline/services/__init__.py
+          cp /src/services__ingestion.py /opt/airflow/geopipeline/services/ingestion.py
+          cp /src/services__processing.py /opt/airflow/geopipeline/services/processing.py
       volumeMounts:
-        - name: hydrosat-configmap
+        - name: geopipeline-configmap
           mountPath: /src
           readOnly: true
-        - name: hydrosat-package
-          mountPath: /opt/airflow/hydrosat
+        - name: geopipeline-package
+          mountPath: /opt/airflow/geopipeline
 
 # Environment variables for MinIO connection (applied to all components)
 env:
@@ -108,10 +108,10 @@ scheduler:
     - name: dags-volume
       configMap:
         name: ${dags_configmap_name}
-    - name: hydrosat-configmap
+    - name: geopipeline-configmap
       configMap:
-        name: ${hydrosat_configmap_name}
-    - name: hydrosat-package
+        name: ${geopipeline_configmap_name}
+    - name: geopipeline-package
       emptyDir: {}
 
   extraVolumeMounts:
@@ -123,38 +123,38 @@ scheduler:
       mountPath: /opt/airflow/dags/field_processing_dag.py
       subPath: field_processing_dag.py
       readOnly: true
-    - name: hydrosat-package
-      mountPath: /opt/airflow/hydrosat
+    - name: geopipeline-package
+      mountPath: /opt/airflow/geopipeline
       readOnly: false
 
   extraInitContainers:
-    - name: init-hydrosat
+    - name: init-geopipeline
       image: busybox:1.36
       command: ["sh", "-c"]
       args:
         - |
           set -e
-          echo "Initializing hydrosat package structure..."
-          mkdir -p /opt/airflow/hydrosat/generators
-          mkdir -p /opt/airflow/hydrosat/clients
-          mkdir -p /opt/airflow/hydrosat/services
-          cp /src/__init__.py /opt/airflow/hydrosat/__init__.py
-          cp /src/config.py /opt/airflow/hydrosat/config.py
-          cp /src/generators___init__.py /opt/airflow/hydrosat/generators/__init__.py
-          cp /src/generators__satellite_data.py /opt/airflow/hydrosat/generators/satellite_data.py
-          cp /src/generators__field_data.py /opt/airflow/hydrosat/generators/field_data.py
-          cp /src/clients___init__.py /opt/airflow/hydrosat/clients/__init__.py
-          cp /src/clients__storage.py /opt/airflow/hydrosat/clients/storage.py
-          cp /src/services___init__.py /opt/airflow/hydrosat/services/__init__.py
-          cp /src/services__ingestion.py /opt/airflow/hydrosat/services/ingestion.py
-          cp /src/services__processing.py /opt/airflow/hydrosat/services/processing.py
+          echo "Initializing geopipeline package structure..."
+          mkdir -p /opt/airflow/geopipeline/generators
+          mkdir -p /opt/airflow/geopipeline/clients
+          mkdir -p /opt/airflow/geopipeline/services
+          cp /src/__init__.py /opt/airflow/geopipeline/__init__.py
+          cp /src/config.py /opt/airflow/geopipeline/config.py
+          cp /src/generators___init__.py /opt/airflow/geopipeline/generators/__init__.py
+          cp /src/generators__satellite_data.py /opt/airflow/geopipeline/generators/satellite_data.py
+          cp /src/generators__field_data.py /opt/airflow/geopipeline/generators/field_data.py
+          cp /src/clients___init__.py /opt/airflow/geopipeline/clients/__init__.py
+          cp /src/clients__storage.py /opt/airflow/geopipeline/clients/storage.py
+          cp /src/services___init__.py /opt/airflow/geopipeline/services/__init__.py
+          cp /src/services__ingestion.py /opt/airflow/geopipeline/services/ingestion.py
+          cp /src/services__processing.py /opt/airflow/geopipeline/services/processing.py
           echo "Package structure initialized successfully"
       volumeMounts:
-        - name: hydrosat-configmap
+        - name: geopipeline-configmap
           mountPath: /src
           readOnly: true
-        - name: hydrosat-package
-          mountPath: /opt/airflow/hydrosat
+        - name: geopipeline-package
+          mountPath: /opt/airflow/geopipeline
 
 # Webserver configuration
 webserver:
@@ -169,10 +169,10 @@ webserver:
     - name: dags-volume
       configMap:
         name: ${dags_configmap_name}
-    - name: hydrosat-configmap
+    - name: geopipeline-configmap
       configMap:
-        name: ${hydrosat_configmap_name}
-    - name: hydrosat-package
+        name: ${geopipeline_configmap_name}
+    - name: geopipeline-package
       emptyDir: {}
 
   extraVolumeMounts:
@@ -184,36 +184,36 @@ webserver:
       mountPath: /opt/airflow/dags/field_processing_dag.py
       subPath: field_processing_dag.py
       readOnly: true
-    - name: hydrosat-package
-      mountPath: /opt/airflow/hydrosat
+    - name: geopipeline-package
+      mountPath: /opt/airflow/geopipeline
       readOnly: false
 
   extraInitContainers:
-    - name: init-hydrosat
+    - name: init-geopipeline
       image: busybox:1.36
       command: ["sh", "-c"]
       args:
         - |
           set -e
-          mkdir -p /opt/airflow/hydrosat/generators
-          mkdir -p /opt/airflow/hydrosat/clients
-          mkdir -p /opt/airflow/hydrosat/services
-          cp /src/__init__.py /opt/airflow/hydrosat/__init__.py
-          cp /src/config.py /opt/airflow/hydrosat/config.py
-          cp /src/generators___init__.py /opt/airflow/hydrosat/generators/__init__.py
-          cp /src/generators__satellite_data.py /opt/airflow/hydrosat/generators/satellite_data.py
-          cp /src/generators__field_data.py /opt/airflow/hydrosat/generators/field_data.py
-          cp /src/clients___init__.py /opt/airflow/hydrosat/clients/__init__.py
-          cp /src/clients__storage.py /opt/airflow/hydrosat/clients/storage.py
-          cp /src/services___init__.py /opt/airflow/hydrosat/services/__init__.py
-          cp /src/services__ingestion.py /opt/airflow/hydrosat/services/ingestion.py
-          cp /src/services__processing.py /opt/airflow/hydrosat/services/processing.py
+          mkdir -p /opt/airflow/geopipeline/generators
+          mkdir -p /opt/airflow/geopipeline/clients
+          mkdir -p /opt/airflow/geopipeline/services
+          cp /src/__init__.py /opt/airflow/geopipeline/__init__.py
+          cp /src/config.py /opt/airflow/geopipeline/config.py
+          cp /src/generators___init__.py /opt/airflow/geopipeline/generators/__init__.py
+          cp /src/generators__satellite_data.py /opt/airflow/geopipeline/generators/satellite_data.py
+          cp /src/generators__field_data.py /opt/airflow/geopipeline/generators/field_data.py
+          cp /src/clients___init__.py /opt/airflow/geopipeline/clients/__init__.py
+          cp /src/clients__storage.py /opt/airflow/geopipeline/clients/storage.py
+          cp /src/services___init__.py /opt/airflow/geopipeline/services/__init__.py
+          cp /src/services__ingestion.py /opt/airflow/geopipeline/services/ingestion.py
+          cp /src/services__processing.py /opt/airflow/geopipeline/services/processing.py
       volumeMounts:
-        - name: hydrosat-configmap
+        - name: geopipeline-configmap
           mountPath: /src
           readOnly: true
-        - name: hydrosat-package
-          mountPath: /opt/airflow/hydrosat
+        - name: geopipeline-package
+          mountPath: /opt/airflow/geopipeline
 
 # Dag Processor configuration (Airflow 3.x)
 dagProcessor:
@@ -223,10 +223,10 @@ dagProcessor:
     - name: dags-volume
       configMap:
         name: ${dags_configmap_name}
-    - name: hydrosat-configmap
+    - name: geopipeline-configmap
       configMap:
-        name: ${hydrosat_configmap_name}
-    - name: hydrosat-package
+        name: ${geopipeline_configmap_name}
+    - name: geopipeline-package
       emptyDir: {}
 
   extraVolumeMounts:
@@ -238,38 +238,38 @@ dagProcessor:
       mountPath: /opt/airflow/dags/field_processing_dag.py
       subPath: field_processing_dag.py
       readOnly: true
-    - name: hydrosat-package
-      mountPath: /opt/airflow/hydrosat
+    - name: geopipeline-package
+      mountPath: /opt/airflow/geopipeline
       readOnly: false
 
   extraInitContainers:
-    - name: init-hydrosat
+    - name: init-geopipeline
       image: busybox:1.36
       command: ["sh", "-c"]
       args:
         - |
           set -e
-          echo "Initializing hydrosat package structure for dag-processor..."
-          mkdir -p /opt/airflow/hydrosat/generators
-          mkdir -p /opt/airflow/hydrosat/clients
-          mkdir -p /opt/airflow/hydrosat/services
-          cp /src/__init__.py /opt/airflow/hydrosat/__init__.py
-          cp /src/config.py /opt/airflow/hydrosat/config.py
-          cp /src/generators___init__.py /opt/airflow/hydrosat/generators/__init__.py
-          cp /src/generators__satellite_data.py /opt/airflow/hydrosat/generators/satellite_data.py
-          cp /src/generators__field_data.py /opt/airflow/hydrosat/generators/field_data.py
-          cp /src/clients___init__.py /opt/airflow/hydrosat/clients/__init__.py
-          cp /src/clients__storage.py /opt/airflow/hydrosat/clients/storage.py
-          cp /src/services___init__.py /opt/airflow/hydrosat/services/__init__.py
-          cp /src/services__ingestion.py /opt/airflow/hydrosat/services/ingestion.py
-          cp /src/services__processing.py /opt/airflow/hydrosat/services/processing.py
+          echo "Initializing geopipeline package structure for dag-processor..."
+          mkdir -p /opt/airflow/geopipeline/generators
+          mkdir -p /opt/airflow/geopipeline/clients
+          mkdir -p /opt/airflow/geopipeline/services
+          cp /src/__init__.py /opt/airflow/geopipeline/__init__.py
+          cp /src/config.py /opt/airflow/geopipeline/config.py
+          cp /src/generators___init__.py /opt/airflow/geopipeline/generators/__init__.py
+          cp /src/generators__satellite_data.py /opt/airflow/geopipeline/generators/satellite_data.py
+          cp /src/generators__field_data.py /opt/airflow/geopipeline/generators/field_data.py
+          cp /src/clients___init__.py /opt/airflow/geopipeline/clients/__init__.py
+          cp /src/clients__storage.py /opt/airflow/geopipeline/clients/storage.py
+          cp /src/services___init__.py /opt/airflow/geopipeline/services/__init__.py
+          cp /src/services__ingestion.py /opt/airflow/geopipeline/services/ingestion.py
+          cp /src/services__processing.py /opt/airflow/geopipeline/services/processing.py
           echo "Package structure initialized successfully"
       volumeMounts:
-        - name: hydrosat-configmap
+        - name: geopipeline-configmap
           mountPath: /src
           readOnly: true
-        - name: hydrosat-package
-          mountPath: /opt/airflow/hydrosat
+        - name: geopipeline-package
+          mountPath: /opt/airflow/geopipeline
 
 # Triggerer configuration
 triggerer:
@@ -279,10 +279,10 @@ triggerer:
     - name: dags-volume
       configMap:
         name: ${dags_configmap_name}
-    - name: hydrosat-configmap
+    - name: geopipeline-configmap
       configMap:
-        name: ${hydrosat_configmap_name}
-    - name: hydrosat-package
+        name: ${geopipeline_configmap_name}
+    - name: geopipeline-package
       emptyDir: {}
 
   extraVolumeMounts:
@@ -294,36 +294,36 @@ triggerer:
       mountPath: /opt/airflow/dags/field_processing_dag.py
       subPath: field_processing_dag.py
       readOnly: true
-    - name: hydrosat-package
-      mountPath: /opt/airflow/hydrosat
+    - name: geopipeline-package
+      mountPath: /opt/airflow/geopipeline
       readOnly: false
 
   extraInitContainers:
-    - name: init-hydrosat
+    - name: init-geopipeline
       image: busybox:1.36
       command: ["sh", "-c"]
       args:
         - |
           set -e
-          mkdir -p /opt/airflow/hydrosat/generators
-          mkdir -p /opt/airflow/hydrosat/clients
-          mkdir -p /opt/airflow/hydrosat/services
-          cp /src/__init__.py /opt/airflow/hydrosat/__init__.py
-          cp /src/config.py /opt/airflow/hydrosat/config.py
-          cp /src/generators___init__.py /opt/airflow/hydrosat/generators/__init__.py
-          cp /src/generators__satellite_data.py /opt/airflow/hydrosat/generators/satellite_data.py
-          cp /src/generators__field_data.py /opt/airflow/hydrosat/generators/field_data.py
-          cp /src/clients___init__.py /opt/airflow/hydrosat/clients/__init__.py
-          cp /src/clients__storage.py /opt/airflow/hydrosat/clients/storage.py
-          cp /src/services___init__.py /opt/airflow/hydrosat/services/__init__.py
-          cp /src/services__ingestion.py /opt/airflow/hydrosat/services/ingestion.py
-          cp /src/services__processing.py /opt/airflow/hydrosat/services/processing.py
+          mkdir -p /opt/airflow/geopipeline/generators
+          mkdir -p /opt/airflow/geopipeline/clients
+          mkdir -p /opt/airflow/geopipeline/services
+          cp /src/__init__.py /opt/airflow/geopipeline/__init__.py
+          cp /src/config.py /opt/airflow/geopipeline/config.py
+          cp /src/generators___init__.py /opt/airflow/geopipeline/generators/__init__.py
+          cp /src/generators__satellite_data.py /opt/airflow/geopipeline/generators/satellite_data.py
+          cp /src/generators__field_data.py /opt/airflow/geopipeline/generators/field_data.py
+          cp /src/clients___init__.py /opt/airflow/geopipeline/clients/__init__.py
+          cp /src/clients__storage.py /opt/airflow/geopipeline/clients/storage.py
+          cp /src/services___init__.py /opt/airflow/geopipeline/services/__init__.py
+          cp /src/services__ingestion.py /opt/airflow/geopipeline/services/ingestion.py
+          cp /src/services__processing.py /opt/airflow/geopipeline/services/processing.py
       volumeMounts:
-        - name: hydrosat-configmap
+        - name: geopipeline-configmap
           mountPath: /src
           readOnly: true
-        - name: hydrosat-package
-          mountPath: /opt/airflow/hydrosat
+        - name: geopipeline-package
+          mountPath: /opt/airflow/geopipeline
 
 # PostgreSQL for metadata
 postgresql:

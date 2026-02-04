@@ -46,7 +46,7 @@ output "next_steps" {
   description = "Next steps after deployment"
   value       = <<-EOT
     ================================================
-    Hydrosat Pipeline Deployed Successfully!
+    GeoPipeline Pipeline Deployed Successfully!
     ================================================
 
     1. Get MinIO Console URL:

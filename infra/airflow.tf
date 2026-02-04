@@ -14,24 +14,24 @@ resource "kubernetes_config_map" "airflow_dags" {
   }
 }
 
-# ConfigMap for hydrosat Python package
-resource "kubernetes_config_map" "hydrosat_package" {
+# ConfigMap for geopipeline Python package
+resource "kubernetes_config_map" "geopipeline_package" {
   metadata {
-    name      = "hydrosat-package"
+    name      = "geopipeline-package"
     namespace = kubernetes_namespace.airflow.metadata[0].name
   }
 
   data = {
-    "__init__.py"                   = file("${path.module}/../src/hydrosat/__init__.py")
-    "config.py"                     = file("${path.module}/../src/hydrosat/config.py")
-    "generators___init__.py"        = file("${path.module}/../src/hydrosat/generators/__init__.py")
-    "generators__satellite_data.py" = file("${path.module}/../src/hydrosat/generators/satellite_data.py")
-    "generators__field_data.py"     = file("${path.module}/../src/hydrosat/generators/field_data.py")
-    "clients___init__.py"           = file("${path.module}/../src/hydrosat/clients/__init__.py")
-    "clients__storage.py"           = file("${path.module}/../src/hydrosat/clients/storage.py")
-    "services___init__.py"          = file("${path.module}/../src/hydrosat/services/__init__.py")
-    "services__ingestion.py"        = file("${path.module}/../src/hydrosat/services/ingestion.py")
-    "services__processing.py"       = file("${path.module}/../src/hydrosat/services/processing.py")
+    "__init__.py"                   = file("${path.module}/../src/geopipeline/__init__.py")
+    "config.py"                     = file("${path.module}/../src/geopipeline/config.py")
+    "generators___init__.py"        = file("${path.module}/../src/geopipeline/generators/__init__.py")
+    "generators__satellite_data.py" = file("${path.module}/../src/geopipeline/generators/satellite_data.py")
+    "generators__field_data.py"     = file("${path.module}/../src/geopipeline/generators/field_data.py")
+    "clients___init__.py"           = file("${path.module}/../src/geopipeline/clients/__init__.py")
+    "clients__storage.py"           = file("${path.module}/../src/geopipeline/clients/storage.py")
+    "services___init__.py"          = file("${path.module}/../src/geopipeline/services/__init__.py")
+    "services__ingestion.py"        = file("${path.module}/../src/geopipeline/services/ingestion.py")
+    "services__processing.py"       = file("${path.module}/../src/geopipeline/services/processing.py")
   }
 }
 
@@ -54,7 +54,7 @@ resource "helm_release" "airflow" {
       airflow_fernet_key      = var.airflow_fernet_key
       airflow_namespace       = kubernetes_namespace.airflow.metadata[0].name
       dags_configmap_name     = kubernetes_config_map.airflow_dags.metadata[0].name
-      hydrosat_configmap_name = kubernetes_config_map.hydrosat_package.metadata[0].name
+      geopipeline_configmap_name = kubernetes_config_map.geopipeline_package.metadata[0].name
       minio_endpoint          = "minio.${kubernetes_namespace.minio.metadata[0].name}.svc.cluster.local:9000"
       minio_access_key        = var.minio_root_user
       minio_secret_key        = var.minio_root_password
@@ -64,6 +64,6 @@ resource "helm_release" "airflow" {
   depends_on = [
     helm_release.minio,
     kubernetes_config_map.airflow_dags,
-    kubernetes_config_map.hydrosat_package,
+    kubernetes_config_map.geopipeline_package,
   ]
 }

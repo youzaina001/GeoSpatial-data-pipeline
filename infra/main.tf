@@ -1,4 +1,4 @@
-# Hydrosat Pipeline Infrastructure - Main Configuration
+# GeoPipeline Pipeline Infrastructure - Main Configuration
 # Terraform configuration for Kubernetes and Helm providers
 
 terraform {
@@ -36,7 +36,7 @@ resource "kubernetes_namespace" "minio" {
     name = "minio"
     labels = {
       app     = "minio"
-      project = "hydrosat"
+      project = "geopipeline"
     }
   }
 }
@@ -46,7 +46,7 @@ resource "kubernetes_namespace" "airflow" {
     name = "airflow"
     labels = {
       app     = "airflow"
-      project = "hydrosat"
+      project = "geopipeline"
     }
   }
 }
