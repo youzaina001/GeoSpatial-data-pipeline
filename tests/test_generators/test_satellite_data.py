@@ -5,7 +5,7 @@ import os
 import tempfile
 import numpy as np
 
-from hydrosat.generators import satellite_data
+from geopipeline.generators import satellite_data
 
 
 class TestGenerateTileMetadata:

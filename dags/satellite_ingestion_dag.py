@@ -17,7 +17,7 @@ from airflow.decorators import task
 
 # Default arguments for the DAG
 default_args = {
-    "owner": "hydrosat",
+    "owner": "geopipeline",
     "depends_on_past": False,
     "email_on_failure": False,
     "email_on_retry": False,
@@ -34,7 +34,7 @@ with DAG(
     schedule="@daily",
     start_date=datetime(2024, 1, 1),
     catchup=False,
-    tags=["hydrosat", "ingestion", "satellite", "aoi"],
+    tags=["geopipeline", "ingestion", "satellite", "aoi"],
 ) as dag:
 
     @task
@@ -45,7 +45,7 @@ with DAG(
         In production, this would query a satellite data API.
         For this demo, we always return available.
         """
-        from hydrosat.config import get_aoi_config
+        from geopipeline.config import get_aoi_config
 
         execution_date = context["ds"]
         aoi_config = get_aoi_config()
@@ -73,13 +73,13 @@ with DAG(
         """
         import os
         import tempfile
-        from hydrosat.config import (
+        from geopipeline.config import (
             get_aoi_config,
             get_generator_config,
             get_storage_config,
         )
-        from hydrosat.generators import satellite_data
-        from hydrosat.clients import storage
+        from geopipeline.generators import satellite_data
+        from geopipeline.clients import storage
 
         execution_date = availability["date"]
         aoi_config = get_aoi_config()
@@ -98,7 +98,7 @@ with DAG(
             "cloud_coverage": availability.get("cloud_coverage", 0),
         }
 
-        with tempfile.TemporaryDirectory(prefix="hydrosat_aoi_") as temp_dir:
+        with tempfile.TemporaryDirectory(prefix="geopipeline_aoi_") as temp_dir:
             # Generate synthetic raster
             local_path = satellite_data.generate_raster_file(
                 aoi_tile,

@@ -9,9 +9,9 @@ from typing import Optional
 
 import numpy as np
 
-from hydrosat.config import get_storage_config, get_aoi_config, get_fields_config
-from hydrosat.clients import storage
-from hydrosat.generators.field_data import generate_fields_for_aoi, get_eligible_fields
+from geopipeline.config import get_storage_config, get_aoi_config, get_fields_config
+from geopipeline.clients import storage
+from geopipeline.generators.field_data import generate_fields_for_aoi, get_eligible_fields
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +233,7 @@ def process_single_field(
         # Download satellite raster
         raster_key = f"{execution_date}/aoi_raster.tif"
 
-        with tempfile.TemporaryDirectory(prefix="hydrosat_field_") as temp_dir:
+        with tempfile.TemporaryDirectory(prefix="geopipeline_field_") as temp_dir:
             local_raster = os.path.join(temp_dir, "aoi_raster.tif")
             storage.download_file(
                 s3_client, storage_config["raw_bucket"], raster_key, local_raster

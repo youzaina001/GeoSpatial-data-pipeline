@@ -7,9 +7,9 @@ import os
 import tempfile
 from typing import Optional
 
-from hydrosat.config import get_storage_config, get_region_config, get_generator_config
-from hydrosat.generators import satellite_data
-from hydrosat.clients import storage
+from geopipeline.config import get_storage_config, get_region_config, get_generator_config
+from geopipeline.generators import satellite_data
+from geopipeline.clients import storage
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ def ingest_single_tile(tile: dict, storage_config: Optional[dict] = None) -> dic
 
     try:
         # Create temp directory for raster file
-        with tempfile.TemporaryDirectory(prefix="hydrosat_tile_") as temp_dir:
+        with tempfile.TemporaryDirectory(prefix="geopipeline_tile_") as temp_dir:
             # Generate synthetic raster
             tile_seed = (
                 generator_config["seed"]

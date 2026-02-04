@@ -6,13 +6,13 @@ import pytest
 from unittest.mock import MagicMock, patch
 from botocore.exceptions import ClientError
 
-from hydrosat.clients import storage
+from geopipeline.clients import storage
 
 
 class TestCreateS3Client:
     """Tests for create_s3_client function."""
 
-    @patch("hydrosat.clients.storage.boto3")
+    @patch("geopipeline.clients.storage.boto3")
     def test_creates_client_with_correct_endpoint(self, mock_boto3):
         """Should create client with configured endpoint."""
         config = {
@@ -29,7 +29,7 @@ class TestCreateS3Client:
         assert call_kwargs["aws_access_key_id"] == "test_access"
         assert call_kwargs["aws_secret_access_key"] == "test_secret"
 
-    @patch("hydrosat.clients.storage.boto3")
+    @patch("geopipeline.clients.storage.boto3")
     def test_uses_https_when_secure(self, mock_boto3):
         """Should use HTTPS when secure=True."""
         config = {

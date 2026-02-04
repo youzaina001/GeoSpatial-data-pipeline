@@ -1,11 +1,11 @@
 # Tests for Processing Service
-"""Tests for hydrosat.services.processing module."""
+"""Tests for geopipeline.services.processing module."""
 
 import pytest
 from unittest.mock import patch
 import numpy as np
 
-from hydrosat.services.processing import (
+from geopipeline.services.processing import (
     compute_ndvi,
     aggregate_field_results,
     discover_fields_for_processing,
@@ -132,8 +132,8 @@ class TestAggregateFieldResults:
 class TestDiscoverFieldsForProcessing:
     """Tests for field discovery."""
 
-    @patch("hydrosat.services.processing.get_aoi_config")
-    @patch("hydrosat.services.processing.get_fields_config")
+    @patch("geopipeline.services.processing.get_aoi_config")
+    @patch("geopipeline.services.processing.get_fields_config")
     def test_returns_list_of_dicts(self, mock_fields_config, mock_aoi_config):
         """Should return list of field dictionaries."""
         mock_aoi_config.return_value = {
@@ -153,8 +153,8 @@ class TestDiscoverFieldsForProcessing:
             assert "field_id" in field
             assert "planting_date" in field
 
-    @patch("hydrosat.services.processing.get_aoi_config")
-    @patch("hydrosat.services.processing.get_fields_config")
+    @patch("geopipeline.services.processing.get_aoi_config")
+    @patch("geopipeline.services.processing.get_fields_config")
     def test_filters_by_execution_date(self, mock_fields_config, mock_aoi_config):
         """Should only return fields eligible for the execution date."""
         mock_aoi_config.return_value = {

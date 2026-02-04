@@ -1,13 +1,13 @@
-# Hydrosat Pipeline Entry Point
+# GeoPipeline Pipeline Entry Point
 """Main entry point for local testing and development."""
 
-from hydrosat.config import get_region_config, get_storage_config
-from hydrosat.services import ingestion
+from geopipeline.config import get_region_config, get_storage_config
+from geopipeline.services import ingestion
 
 
 def main():
     """Run a sample ingestion for testing."""
-    print("Hydrosat Geospatial Data Pipeline")
+    print("GeoPipeline Geospatial Data Pipeline")
     print("=" * 40)
 
     # Show configuration

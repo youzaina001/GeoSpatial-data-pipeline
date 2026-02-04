@@ -1,11 +1,11 @@
-# Hydrosat Pipeline Makefile
+# GeoPipeline Pipeline Makefile
 # Common commands for development and deployment
 
 .PHONY: help install test lint format clean deploy destroy start-minikube access
 
 # Default target
 help:
-	@echo "Hydrosat Pipeline - Available Commands"
+	@echo "GeoPipeline Pipeline - Available Commands"
 	@echo ""
 	@echo "Development:"
 	@echo "  make install      Install dependencies"
@@ -35,7 +35,7 @@ test:
 	uv run pytest tests/ -v
 
 test-cov:
-	uv run pytest tests/ -v --cov=hydrosat --cov-report=term-missing
+	uv run pytest tests/ -v --cov=geopipeline --cov-report=term-missing
 
 lint:
 	uv run ruff check src/ dags/ tests/

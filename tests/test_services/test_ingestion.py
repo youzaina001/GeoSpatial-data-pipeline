@@ -3,15 +3,15 @@
 
 from unittest.mock import patch, MagicMock
 
-from hydrosat.services import ingestion
+from geopipeline.services import ingestion
 
 
 class TestDiscoverTilesForDate:
     """Tests for discover_tiles_for_date function."""
 
-    @patch("hydrosat.services.ingestion.get_region_config")
-    @patch("hydrosat.services.ingestion.get_generator_config")
-    @patch("hydrosat.services.ingestion.satellite_data")
+    @patch("geopipeline.services.ingestion.get_region_config")
+    @patch("geopipeline.services.ingestion.get_generator_config")
+    @patch("geopipeline.services.ingestion.satellite_data")
     def test_uses_default_region_if_none(
         self, mock_sat_data, mock_gen_config, mock_region_config
     ):
@@ -25,8 +25,8 @@ class TestDiscoverTilesForDate:
         mock_region_config.assert_called_once()
         mock_sat_data.generate_tile_metadata.assert_called_once()
 
-    @patch("hydrosat.services.ingestion.get_generator_config")
-    @patch("hydrosat.services.ingestion.satellite_data")
+    @patch("geopipeline.services.ingestion.get_generator_config")
+    @patch("geopipeline.services.ingestion.satellite_data")
     def test_uses_provided_region(self, mock_sat_data, mock_gen_config):
         """Should use provided region config."""
         custom_region = {"bbox": [5, 5, 6, 6], "tile_size": 1.0}
@@ -43,10 +43,10 @@ class TestDiscoverTilesForDate:
 class TestIngestSingleTile:
     """Tests for ingest_single_tile function."""
 
-    @patch("hydrosat.services.ingestion.get_storage_config")
-    @patch("hydrosat.services.ingestion.get_generator_config")
-    @patch("hydrosat.services.ingestion.satellite_data")
-    @patch("hydrosat.services.ingestion.storage")
+    @patch("geopipeline.services.ingestion.get_storage_config")
+    @patch("geopipeline.services.ingestion.get_generator_config")
+    @patch("geopipeline.services.ingestion.satellite_data")
+    @patch("geopipeline.services.ingestion.storage")
     def test_returns_ingestion_result(
         self, mock_storage, mock_sat_data, mock_gen_config, mock_storage_config
     ):
@@ -86,8 +86,8 @@ class TestIngestSingleTile:
 class TestGetIngestedTileCount:
     """Tests for get_ingested_tile_count function."""
 
-    @patch("hydrosat.services.ingestion.get_storage_config")
-    @patch("hydrosat.services.ingestion.storage")
+    @patch("geopipeline.services.ingestion.get_storage_config")
+    @patch("geopipeline.services.ingestion.storage")
     def test_counts_raster_files_not_metadata(self, mock_storage, mock_storage_config):
         """Should count raster files (.tif and .npy), not metadata."""
         mock_storage_config.return_value = {
@@ -109,8 +109,8 @@ class TestGetIngestedTileCount:
 
         assert count == 2
 
-    @patch("hydrosat.services.ingestion.get_storage_config")
-    @patch("hydrosat.services.ingestion.storage")
+    @patch("geopipeline.services.ingestion.get_storage_config")
+    @patch("geopipeline.services.ingestion.storage")
     def test_counts_npy_files_when_rasterio_missing(
         self, mock_storage, mock_storage_config
     ):

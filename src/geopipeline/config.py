@@ -1,4 +1,4 @@
-# Hydrosat Pipeline Configuration
+# GeoPipeline Pipeline Configuration
 """Configuration management using environment variables."""
 
 import os

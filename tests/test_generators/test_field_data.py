@@ -1,9 +1,9 @@
 # Tests for Field Data Generator
-"""Tests for hydrosat.generators.field_data module."""
+"""Tests for geopipeline.generators.field_data module."""
 
 from datetime import datetime
 
-from hydrosat.generators.field_data import (
+from geopipeline.generators.field_data import (
     Field,
     generate_field_id,
     generate_polygon_around_point,

@@ -1,2 +1,2 @@
 # Tests Package
-"""Test suite for Hydrosat pipeline."""
+"""Test suite for GeoPipeline pipeline."""

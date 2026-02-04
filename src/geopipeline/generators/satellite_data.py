@@ -167,7 +167,7 @@ def generate_tiles_for_date(
         List of tile metadata dicts with 'local_path' added
     """
     if output_dir is None:
-        output_dir = tempfile.mkdtemp(prefix="hydrosat_")
+        output_dir = tempfile.mkdtemp(prefix="geopipeline_")
 
     tiles = generate_tile_metadata(region, date, seed)
 

@@ -18,7 +18,7 @@ from airflow.sensors.base import PokeReturnValue
 
 # Default arguments for the DAG
 default_args = {
-    "owner": "hydrosat",
+    "owner": "geopipeline",
     "depends_on_past": False,
     "email_on_failure": False,
     "email_on_retry": False,
@@ -35,7 +35,7 @@ with DAG(
     schedule="@daily",
     start_date=datetime(2024, 1, 1),
     catchup=False,
-    tags=["hydrosat", "processing", "fields", "dynamic"],
+    tags=["geopipeline", "processing", "fields", "dynamic"],
 ) as dag:
 
     @task.sensor(poke_interval=60, timeout=3600, mode="poke")
@@ -45,7 +45,7 @@ with DAG(
 
         Creates a dependency: field processing can only run after satellite ingestion.
         """
-        from hydrosat.services.processing import check_satellite_data_available
+        from geopipeline.services.processing import check_satellite_data_available
 
         execution_date = context["ds"]
         is_ready = check_satellite_data_available(execution_date)
@@ -67,7 +67,7 @@ with DAG(
         A field is eligible if execution_date >= planting_date.
         Returns list of field dicts that will be mapped to parallel tasks.
         """
-        from hydrosat.services.processing import discover_fields_for_processing
+        from geopipeline.services.processing import discover_fields_for_processing
 
         execution_date = context["ds"]
         logger.info(f"Discovering eligible fields for {execution_date}")
@@ -91,7 +91,7 @@ with DAG(
         One instance of this task runs for each eligible field.
         Computes NDVI and band statistics for the field polygon.
         """
-        from hydrosat.services.processing import process_single_field
+        from geopipeline.services.processing import process_single_field
 
         execution_date = context["ds"]
         field_id = field["field_id"]
@@ -118,7 +118,7 @@ with DAG(
 
         Collects results from all dynamically mapped process_field tasks.
         """
-        from hydrosat.services.processing import generate_daily_report
+        from geopipeline.services.processing import generate_daily_report
 
         execution_date = context["ds"]
 

@@ -944,7 +944,7 @@ wheels = [
 ]
 
 [[package]]
-name = "hydrosat-technical-test"
+name = "geopipeline-portfolio"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
