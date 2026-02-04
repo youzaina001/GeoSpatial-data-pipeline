@@ -5,7 +5,7 @@
 set -e
 
 echo "=========================================="
-echo "Hydrosat Pipeline - Service Access"
+echo "GeoPipeline Pipeline - Service Access"
 echo "=========================================="
 echo ""
 

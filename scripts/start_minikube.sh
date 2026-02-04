@@ -1,11 +1,11 @@
 #!/bin/bash
-# Start Minikube for Hydrosat Pipeline
+# Start Minikube for GeoPipeline Pipeline
 # This script initializes a local Kubernetes cluster
 
 set -e
 
 echo "=========================================="
-echo "Starting Minikube for Hydrosat Pipeline"
+echo "Starting Minikube for GeoPipeline Pipeline"
 echo "=========================================="
 
 # Check if minikube is installed

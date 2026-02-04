@@ -1,4 +1,4 @@
-# Hydrosat Geospatial Data Pipeline
+# GeoPipeline Geospatial Data Pipeline
 
 A production-ready geospatial data pipeline demonstrating Apache Airflow on Kubernetes with field-level satellite imagery processing.
 
@@ -16,7 +16,7 @@ A production-ready geospatial data pipeline demonstrating Apache Airflow on Kube
 ## 📁 Project Structure
 
 ```
-hydrosat-technical-test/
+geopipeline-portfolio/
 ├── infra/                      # Terraform IaC
 │   ├── main.tf                 # Providers & namespaces
 │   ├── minio.tf                # MinIO deployment
@@ -26,7 +26,7 @@ hydrosat-technical-test/
 │   └── values/                 # Helm chart values (YAML)
 │       ├── minio-values.yaml   # MinIO configuration
 │       └── airflow-values.yaml # Airflow configuration
-├── src/hydrosat/               # Python package
+├── src/geopipeline/               # Python package
 │   ├── config.py               # Configuration management (AOI, fields)
 │   ├── generators/             # Synthetic data generation
 │   │   ├── satellite_data.py   # AOI raster generation
@@ -116,7 +116,7 @@ uv sync --all-extras
 uv run pytest tests/ -v
 
 # With coverage
-uv run pytest tests/ -v --cov=hydrosat
+uv run pytest tests/ -v --cov=geopipeline
 ```
 
 ## 📊 DAG Overview

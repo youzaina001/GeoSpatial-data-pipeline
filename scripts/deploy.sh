@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy Hydrosat Pipeline Infrastructure
+# Deploy GeoPipeline Pipeline Infrastructure
 # This script deploys MinIO and Airflow to Kubernetes using Terraform
 
 set -e
@@ -9,7 +9,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 INFRA_DIR="$PROJECT_ROOT/infra"
 
 echo "=========================================="
-echo "Deploying Hydrosat Pipeline"
+echo "Deploying GeoPipeline Pipeline"
 echo "=========================================="
 
 # Check prerequisites
