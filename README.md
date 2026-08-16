@@ -69,9 +69,10 @@ to Databricks.
 
 ## Databricks Free Edition
 
-[`databricks/`](databricks/) queries an **uploaded or committed Product
-snapshot**. It does not recompute rasters. Local Parquet and Free Edition are
-two sandboxes, not one lake
+[`databricks/`](databricks/) queries a Product you build locally with
+`make run` and upload (or deploy with a bundle). It does not recompute
+rasters. Parquet is not in git. Local files and Free Edition are two
+sandboxes, not one lake
 ([ADR 0003](docs/adr/0003-split-sandboxes.md),
 [ADR 0011](docs/adr/0011-paid-glue-is-not-v1.md)).
 
@@ -101,4 +102,4 @@ Seams: `run()` (status order, backfill, Landing/Product, overwrite),
 | PyArrow      | Field-day Parquet                         |
 | DuckDB       | Local SQL over Product                    |
 | Airflow 3    | Optional DAG that calls `run_date`        |
-| Databricks   | SQL demo over a Product snapshot          |
+| Databricks   | SQL demo over an uploaded local Product   |

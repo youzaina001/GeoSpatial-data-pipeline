@@ -37,23 +37,6 @@ def test_scene_catalog_is_a_fixed_calendar() -> None:
     assert statuses == {"present", "cloudy", "missing"}
 
 
-def test_committed_product_snapshot_has_the_season_grain() -> None:
-    snapshot = REPO / "databricks" / "snapshot" / "field_days"
-    parts = list(snapshot.glob("date=*/part.parquet"))
-    assert len(parts) == 45
-    import pyarrow.parquet as pq
-
-    sample = pq.read_table(parts[0])
-    assert set(sample.column_names) >= {
-        "field_id",
-        "date",
-        "status",
-        "ndvi",
-        "crop_type",
-        "planting_date",
-    }
-
-
 def test_season_fixtures_backfill_two_days(tmp_path: Path) -> None:
     run(
         "2024-04-01",
