@@ -1,0 +1,215 @@
+{
+  "2024-04-01": {
+    "status": "present",
+    "red": 1896,
+    "nir": 6468
+  },
+  "2024-04-02": {
+    "status": "present",
+    "red": 1909,
+    "nir": 6497
+  },
+  "2024-04-03": {
+    "status": "cloudy",
+    "red": 2500,
+    "nir": 2800
+  },
+  "2024-04-04": {
+    "status": "present",
+    "red": 1935,
+    "nir": 6555
+  },
+  "2024-04-05": {
+    "status": "present",
+    "red": 1948,
+    "nir": 6584
+  },
+  "2024-04-06": {
+    "status": "present",
+    "red": 1961,
+    "nir": 3813
+  },
+  "2024-04-07": {
+    "status": "missing"
+  },
+  "2024-04-08": {
+    "status": "present",
+    "red": 1987,
+    "nir": 3871
+  },
+  "2024-04-09": {
+    "status": "present",
+    "red": 2000,
+    "nir": 3900
+  },
+  "2024-04-10": {
+    "status": "cloudy",
+    "red": 2500,
+    "nir": 2800
+  },
+  "2024-04-11": {
+    "status": "present",
+    "red": 2026,
+    "nir": 3958
+  },
+  "2024-04-12": {
+    "status": "present",
+    "red": 2039,
+    "nir": 3987
+  },
+  "2024-04-13": {
+    "status": "present",
+    "red": 2052,
+    "nir": 4016
+  },
+  "2024-04-14": {
+    "status": "missing"
+  },
+  "2024-04-15": {
+    "status": "present",
+    "red": 2078,
+    "nir": 4074
+  },
+  "2024-04-16": {
+    "status": "present",
+    "red": 2091,
+    "nir": 4103
+  },
+  "2024-04-17": {
+    "status": "cloudy",
+    "red": 2500,
+    "nir": 2800
+  },
+  "2024-04-18": {
+    "status": "present",
+    "red": 2117,
+    "nir": 4161
+  },
+  "2024-04-19": {
+    "status": "present",
+    "red": 2130,
+    "nir": 4190
+  },
+  "2024-04-20": {
+    "status": "present",
+    "red": 2143,
+    "nir": 4219
+  },
+  "2024-04-21": {
+    "status": "missing"
+  },
+  "2024-04-22": {
+    "status": "present",
+    "red": 2169,
+    "nir": 4277
+  },
+  "2024-04-23": {
+    "status": "present",
+    "red": 2182,
+    "nir": 4306
+  },
+  "2024-04-24": {
+    "status": "cloudy",
+    "red": 2500,
+    "nir": 2800
+  },
+  "2024-04-25": {
+    "status": "present",
+    "red": 2208,
+    "nir": 4364
+  },
+  "2024-04-26": {
+    "status": "present",
+    "red": 2221,
+    "nir": 4393
+  },
+  "2024-04-27": {
+    "status": "present",
+    "red": 2234,
+    "nir": 4422
+  },
+  "2024-04-28": {
+    "status": "missing"
+  },
+  "2024-04-29": {
+    "status": "present",
+    "red": 2260,
+    "nir": 4480
+  },
+  "2024-04-30": {
+    "status": "present",
+    "red": 2273,
+    "nir": 4509
+  },
+  "2024-05-01": {
+    "status": "cloudy",
+    "red": 2500,
+    "nir": 2800
+  },
+  "2024-05-02": {
+    "status": "present",
+    "red": 2299,
+    "nir": 4567
+  },
+  "2024-05-03": {
+    "status": "present",
+    "red": 2312,
+    "nir": 4596
+  },
+  "2024-05-04": {
+    "status": "present",
+    "red": 2325,
+    "nir": 4625
+  },
+  "2024-05-05": {
+    "status": "missing"
+  },
+  "2024-05-06": {
+    "status": "present",
+    "red": 2351,
+    "nir": 4683
+  },
+  "2024-05-07": {
+    "status": "present",
+    "red": 2364,
+    "nir": 4712
+  },
+  "2024-05-08": {
+    "status": "cloudy",
+    "red": 2500,
+    "nir": 2800
+  },
+  "2024-05-09": {
+    "status": "present",
+    "red": 2390,
+    "nir": 4770
+  },
+  "2024-05-10": {
+    "status": "present",
+    "red": 2403,
+    "nir": 4799
+  },
+  "2024-05-11": {
+    "status": "present",
+    "red": 2416,
+    "nir": 4828
+  },
+  "2024-05-12": {
+    "status": "missing"
+  },
+  "2024-05-13": {
+    "status": "present",
+    "red": 2442,
+    "nir": 4886
+  },
+  "2024-05-14": {
+    "status": "present",
+    "red": 2455,
+    "nir": 4915
+  },
+  "2024-05-15": {
+    "status": "cloudy",
+    "red": 2500,
+    "nir": 2800
+  }
+}

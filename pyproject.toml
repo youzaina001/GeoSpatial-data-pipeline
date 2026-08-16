@@ -1,23 +1,28 @@
 [project]
 name = "geopipeline-portfolio"
 version = "0.1.0"
-description = "Geospatial data pipeline with Airflow on Kubernetes"
+description = "Portfolio pipeline: Field-day NDVI from synthetic scenes, local Parquet, DuckDB, Databricks SQL"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "apache-airflow>=3.0.0",
-    "boto3>=1.34.0",
-    "rasterio>=1.3.0",
+    "duckdb>=1.0.0",
     "numpy>=1.26.0",
+    "pyarrow>=16.0.0",
+    "rasterio>=1.3.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
-    "moto[s3]>=5.0.0",
     "ruff>=0.1.0",
 ]
+airflow = [
+    "apache-airflow>=3.0.0",
+]
+
+[project.scripts]
+geopipeline = "geopipeline.cli:main"
 
 [build-system]
 requires = ["hatchling"]

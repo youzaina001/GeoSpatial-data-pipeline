@@ -1,238 +1,104 @@
-# GeoPipeline Geospatial Data Pipeline
+# GeoPipeline
 
-A production-ready geospatial data pipeline demonstrating Apache Airflow on Kubernetes with field-level satellite imagery processing.
+A GitHub portfolio pipeline: synthetic satellite Scenes over an AOI become a
+**Field-day** table (one row per Field per date) with a real status and, when
+the Scene is usable, polygon-masked NDVI.
 
-## 🎯 Features
+Readers are the author and interviewers, not an operational farm. See
+[`CONTEXT.md`](CONTEXT.md) for the glossary and [`docs/adr/`](docs/adr/) for
+why the system looks like this.
 
-- **Field-Level Processing**: Agricultural fields with polygon geometries and planting dates
-- **Dynamic Task Mapping**: Airflow DAGs with `expand()` for parallel per-field processing
-- **Planting-Date Awareness**: Fields processed only after their planting date
-- **Day-over-Day Dependencies**: Processing DAG waits for satellite data ingestion
-- **Kubernetes-Native**: Tasks run as Kubernetes pods (KubernetesExecutor)
-- **S3-Compatible Storage**: MinIO for local development, swappable for cloud S3
-- **Synthetic Data Generation**: No external API keys required
-- **Infrastructure as Code**: Terraform for reproducible deployments
-
-## 📁 Project Structure
+## What you get after a clone
 
 ```
-geopipeline-portfolio/
-├── infra/                      # Terraform IaC
-│   ├── main.tf                 # Providers & namespaces
-│   ├── minio.tf                # MinIO deployment
-│   ├── airflow.tf              # Airflow deployment
-│   ├── variables.tf            # Configuration variables
-│   ├── outputs.tf              # Service URLs & info
-│   └── values/                 # Helm chart values (YAML)
-│       ├── minio-values.yaml   # MinIO configuration
-│       └── airflow-values.yaml # Airflow configuration
-├── src/geopipeline/               # Python package
-│   ├── config.py               # Configuration management (AOI, fields)
-│   ├── generators/             # Synthetic data generation
-│   │   ├── satellite_data.py   # AOI raster generation
-│   │   └── field_data.py       # Field polygon & planting date generation
-│   ├── clients/                # External service clients
-│   │   └── storage.py          # S3/MinIO client
-│   └── services/               # Business logic
-│       ├── ingestion.py        # AOI satellite data ingestion
-│       └── processing.py       # Field-level processing & NDVI
-├── dags/                       # Airflow DAGs
-│   ├── satellite_ingestion_dag.py  # DAG 1: AOI satellite data ingestion
-│   └── field_processing_dag.py     # DAG 2: Dynamic field processing
-├── tests/                      # Unit tests (57 tests)
-├── scripts/                    # Helper scripts
-│   ├── start_minikube.sh       # Start Kubernetes cluster
-│   ├── deploy.sh               # Deploy infrastructure
-│   └── access_services.sh      # Get service URLs
-└── pyproject.toml
+uv sync
+make run      # 2024-04-01 → 2024-05-15 into data/
+make query    # DuckDB over local Parquet
+make test
 ```
 
-## 🚀 Quick Start
+No Minikube, no AWS account, no Databricks workspace. The same Python is what
+the Airflow DAG calls; nobody has to start a scheduler.
 
-### Prerequisites
+## The product
 
-- [Docker](https://docs.docker.com/get-docker/)
-- [Minikube](https://minikube.sigs.k8s.io/docs/start/)
-- [Terraform](https://developer.hashicorp.com/terraform/install)
-- [uv](https://github.com/astral-sh/uv) (Python package manager)
+Grain: `(field_id, date)`. Status, in this order:
 
-### 1. Start Minikube
+1. **ineligible** — date is before the Field's planting date
+2. **missing-scene** — no Scene for that date
+3. **cloudy** — Scene is cloudy
+4. **observed** — NDVI over the Field polygon
+
+Only observed rows have NDVI. A rerun of a date overwrites that date's Product
+(late Scene, not SCD2).
+
+Checked-in fixtures, not a random seed:
+
+- [`fixtures/field_master.geojson`](fixtures/field_master.geojson) — 20 Fields, stable IDs
+- [`fixtures/scene_catalog.json`](fixtures/scene_catalog.json) — 45 calendar dates, present / cloudy / missing
+
+## Layout
+
+Local Landing and Product use S3-shaped keys on the filesystem
+([ADR 0012](docs/adr/0012-filesystem-landing-and-product.md)):
+
+```
+data/landing/fields/field_master.geojson
+data/landing/scenes/date=2024-04-16/scene.tif
+data/landing/scenes/date=2024-04-16/scene.json
+data/product/field_days/date=2024-04-16/part.parquet
+```
+
+Two layers, not bronze/silver/gold
+([ADR 0005](docs/adr/0005-two-layers-not-medallion.md)).
+
+## CLI
 
 ```bash
-./scripts/start_minikube.sh
+uv run geopipeline run --from 2024-04-01 --to 2024-05-15 --data-root data
+uv run geopipeline query --data-root data
+uv run geopipeline query --data-root data --sql "SELECT status, count(*) FROM field_days GROUP BY 1"
 ```
 
-Or manually:
+## Airflow
+
+[`dags/field_days_dag.py`](dags/field_days_dag.py) is one DAG with one task:
+`run_scheduled_date(ds)`. That function is unit-tested without a scheduler
+(and the DAG file imports if you `uv sync --extra airflow`). It is not wired
+to Databricks.
+
+## Databricks Free Edition
+
+[`databricks/`](databricks/) queries an **uploaded or committed Product
+snapshot**. It does not recompute rasters. Local Parquet and Free Edition are
+two sandboxes, not one lake
+([ADR 0003](docs/adr/0003-split-sandboxes.md),
+[ADR 0011](docs/adr/0011-paid-glue-is-not-v1.md)).
+
+## Out of v1
+
+Paid S3↔Databricks glue, MWAA, EKS, real Sentinel/STAC, medallion layers,
+always-on AWS. Kubernetes is prior art under [`archive/v0/`](archive/v0/)
+— not a supported run
+([ADR 0014](docs/adr/0014-kubernetes-is-prior-art.md),
+[ADR 0015](docs/adr/0015-no-live-k8s-dag-as-code.md)).
+
+## Tests
 
 ```bash
-minikube start --cpus=2 --memory=4096
-```
-
-### 2. Deploy Infrastructure
-
-```bash
-./scripts/deploy.sh
-```
-
-Or manually:
-
-```bash
-cd infra
-terraform init
-terraform apply
-```
-
-### 3. Access Services
-
-```bash
-# Get service URLs
-./scripts/access_services.sh
-
-# Or directly:
-minikube service airflow-webserver -n airflow  # Airflow UI
-minikube service minio-console -n minio         # MinIO Console
-```
-
-**Default Credentials:**
-
-- Airflow: `admin` / `admin`
-- MinIO: `minioadmin` / `minioadmin`
-
-### 4. Run DAGs
-
-1. Open Airflow UI
-2. Enable `satellite_ingestion` DAG - ingests daily satellite data for AOI
-3. Trigger a run (or wait for schedule)
-4. Enable `field_processing` DAG - processes each field dynamically
-5. Observe dynamic task generation (one task per eligible field)
-
-## 🧪 Running Tests
-
-```bash
-# Install dev dependencies
-uv sync --all-extras
-
-# Run tests
 uv run pytest tests/ -v
-
-# With coverage
-uv run pytest tests/ -v --cov=geopipeline
 ```
 
-## 📊 DAG Overview
+Seams: `run()` (status order, backfill, Landing/Product, overwrite),
+`ndvi_over_geometry` (polygon mask), CLI, DuckDB query, DAG wrap.
 
-### DAG 1: Satellite Ingestion (`satellite_ingestion`)
+## Stack
 
-Ingests daily satellite data for the Area of Interest (AOI):
-
-```
-check_satellite_availability() → generate_aoi_raster() → log_summary()
-```
-
-- Checks satellite data availability for execution date
-- Generates synthetic multi-band raster (B02, B03, B04, B08)
-- Stores raster in MinIO `raw-imagery` bucket
-
-### DAG 2: Field Processing (`field_processing`)
-
-Demonstrates **dynamic task mapping** with **planting-date-aware** processing:
-
-```
-wait_for_satellite_data() → discover_eligible_fields() → [process_field × N fields] → generate_report()
-```
-
-- **Sensor**: Waits for satellite data from DAG 1
-- **Discovery**: Finds fields where `planting_date <= execution_date`
-- **Dynamic Tasks**: Creates N parallel tasks (one per eligible field)
-- **Processing**: Computes NDVI and band statistics for each field
-- **Report**: Aggregates results to `processed-data` bucket
-
-### Field Model
-
-Each field has:
-
-- `field_id`: Unique identifier
-- `geometry`: Polygon coordinates
-- `crop_type`: wheat, corn, soybean, sunflower
-- `planting_date`: Date when crop was planted
-- `area_hectares`: Field size
-
-## ⚙️ Configuration
-
-Environment variables (set in Terraform or manually):
-
-| Variable           | Default          | Description                  |
-| ------------------ | ---------------- | ---------------------------- |
-| `MINIO_ENDPOINT`   | `localhost:9000` | MinIO API endpoint           |
-| `MINIO_ACCESS_KEY` | `minioadmin`     | MinIO access key             |
-| `MINIO_SECRET_KEY` | `minioadmin`     | MinIO secret key             |
-| `RAW_BUCKET`       | `raw-imagery`    | Bucket for satellite rasters |
-| `PROCESSED_BUCKET` | `processed-data` | Bucket for field reports     |
-| `AOI_NAME`         | `europe-sample`  | Area of Interest name        |
-| `NUM_FIELDS`       | `6`              | Number of fields to generate |
-
-## 🏗️ Design Principles
-
-| Principle  | Application                                |
-| ---------- | ------------------------------------------ |
-| **KISS**   | Simple functions, no complex abstractions  |
-| **DRY**    | Shared clients/services across DAGs        |
-| **YAGNI**  | Only what's needed for the challenge       |
-| **SoC**    | Generators, clients, services are separate |
-| **DI/IoC** | Config passed to functions, easy testing   |
-
-## 📚 Resources & Documentation
-
-### Core Technologies
-
-| Technology     | Version | Documentation                                                                    |
-| -------------- | ------- | -------------------------------------------------------------------------------- |
-| Apache Airflow | 3.0.2   | [docs.apache.org/airflow](https://airflow.apache.org/docs/apache-airflow/3.0.2/) |
-| Kubernetes     | 1.28+   | [kubernetes.io/docs](https://kubernetes.io/docs/home/)                           |
-| Terraform      | ≥1.0.0  | [terraform.io/docs](https://developer.hashicorp.com/terraform/docs)              |
-| MinIO          | Latest  | [min.io/docs](https://docs.min.io/enterprise/aistor-object-store/)                    |
-| Minikube       | Latest  | [minikube.sigs.k8s.io](https://minikube.sigs.k8s.io/docs/)                       |
-
-### Helm Charts
-
-| Chart          | Version | Source                                                                                             |
-| -------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| Apache Airflow | 1.18.0  | [airflow.apache.org/docs/helm-chart](https://airflow.apache.org/docs/helm-chart/stable/index.html) |
-| MinIO          | 5.0.15  | [github.com/minio/minio/helm](https://github.com/minio/minio/tree/master/helm/minio)               |
-
-### Python Dependencies
-
-| Package        | Version | Purpose                |
-| -------------- | ------- | ---------------------- |
-| boto3          | ≥1.34.0 | S3/MinIO client        |
-| numpy          | ≥1.26.0 | Raster data processing |
-| apache-airflow | 3.0.0   | Workflow orchestration |
-
-### Terraform Providers
-
-| Provider             | Version | Registry                                                                                                                         |
-| -------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| hashicorp/kubernetes | ~>2.25  | [registry.terraform.io/providers/hashicorp/kubernetes](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs) |
-| hashicorp/helm       | ~>2.12  | [registry.terraform.io/providers/hashicorp/helm](https://registry.terraform.io/providers/hashicorp/helm/latest/docs)             |
-
-## 🤖 AI Tools Disclosure
-
-This project was developed with assistance from:
-
-- **Claude** (Anthropic) — Code review, refactoring, and documentation
-- **Gemini** (Google) — Infrastructure simplification and best practices
-
-AI was used for auto-completion, explanations, and iterative improvements.
-
-## 🧹 Cleanup
-
-```bash
-# Destroy infrastructure
-cd infra && terraform destroy
-
-# Stop Minikube
-minikube stop
-
-# Delete Minikube cluster
-minikube delete
-```
+| Piece        | Role                                      |
+| ------------ | ----------------------------------------- |
+| Python 3.12+ | Pipeline, CLI                             |
+| rasterio     | Synthetic GeoTIFF + polygon mask          |
+| PyArrow      | Field-day Parquet                         |
+| DuckDB       | Local SQL over Product                    |
+| Airflow 3    | Optional DAG that calls `run_date`        |
+| Databricks   | SQL demo over a Product snapshot          |
