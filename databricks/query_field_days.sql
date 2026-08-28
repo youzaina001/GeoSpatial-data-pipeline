@@ -1,9 +1,11 @@
 -- Field-day Product — Databricks SQL
--- Upload data/product/field_days after `make run` and point the path
--- below at it. This workspace does not generate rasters.
+-- After `databricks bundle deploy`, Product is at
+-- /Workspace/Users/<you>/geopipeline/data/product/field_days
+-- (hand-upload alternative: /FileStore/field_days).
+-- This workspace does not generate rasters.
 
 -- CREATE OR REPLACE TABLE field_days
--- AS SELECT * FROM parquet.`/FileStore/field_days`;
+-- AS SELECT * FROM parquet.`/Workspace/Users/<you>/geopipeline/data/product/field_days`;
 
 SELECT
     date,

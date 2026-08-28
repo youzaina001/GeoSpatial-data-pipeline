@@ -2,15 +2,17 @@
 # MAGIC %md
 # MAGIC # Field-day Product
 # MAGIC
-# MAGIC Upload `data/product/field_days` after `make run` (Hive-style
-# MAGIC `date=YYYY-MM-DD/` Parquet) to DBFS or a Unity Catalog volume.
+# MAGIC After `databricks bundle deploy`, Product is under the bundle
+# MAGIC `workspace.file_path`: `.../geopipeline/data/product/field_days`.
+# MAGIC Hand-upload alternative: `/FileStore/field_days`.
 # MAGIC This notebook only queries that Product. It does not ingest Scenes
 # MAGIC or compute NDVI.
 
 # COMMAND ----------
 
-# Edit to the uploaded Product directory (the folder that contains date=* partitions).
-product_path = "/FileStore/field_days"
+# Must match databricks.yml workspace.file_path + data/product/field_days.
+_user = spark.sql("SELECT current_user()").first()[0]
+product_path = f"/Workspace/Users/{_user}/geopipeline/data/product/field_days"
 
 field_days = spark.read.parquet(product_path)
 field_days.createOrReplaceTempView("field_days")

@@ -1,0 +1,23 @@
+# Databricks bundle: push local Field-day Product + query code.
+# Does not ingest Scenes or compute NDVI. Workspace host comes from the
+# Databricks CLI profile, not from this file.
+
+bundle:
+  name: geopipeline-field-days
+
+workspace:
+  file_path: /Users/${workspace.current_user.userName}/geopipeline
+
+sync:
+  paths:
+    - databricks
+    - data/product/field_days
+  include:
+    - databricks/query_field_days.py
+    - databricks/query_field_days.sql
+    - data/product/field_days/**
+
+targets:
+  dev:
+    mode: development
+    default: true

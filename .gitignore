@@ -62,6 +62,9 @@ htmlcov/
 # Local Landing + Product from `make run`
 /data/
 
+# Databricks CLI bundle state
+.databricks/
+
 # Python version
 .python-version
 

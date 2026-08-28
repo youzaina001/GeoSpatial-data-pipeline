@@ -1,6 +1,6 @@
 # GeoPipeline — local Field-day backfill and query
 
-.PHONY: help install test lint format clean run query validate
+.PHONY: help install test lint format clean run query validate databricks
 
 SEASON_FROM ?= 2024-04-01
 SEASON_TO ?= 2024-05-15
@@ -16,6 +16,7 @@ help:
 	@echo "  make run        Backfill the fixture season into $(DATA_ROOT)"
 	@echo "  make query      DuckDB rollup of the local Product"
 	@echo "  make validate   Confirm the DAG file wraps run_date"
+	@echo "  make databricks Backfill the fixture season, then databricks bundle deploy"
 	@echo "  make clean      Remove caches and local data/"
 
 install:
@@ -46,6 +47,17 @@ text = Path('dags/field_days_dag.py').read_text(); \
 assert 'from geopipeline.pipeline import run_scheduled_date' in text; \
 assert 'dag_id=\"field_days\"' in text; \
 print('field_days DAG wraps geopipeline.pipeline.run_scheduled_date')"
+
+databricks: run
+	@command -v databricks >/dev/null 2>&1 || { \
+		echo "Databricks CLI not found. Clone-default is: uv sync && make run && make query."; \
+		exit 1; \
+	}
+	@test -d $(DATA_ROOT)/product/field_days || { \
+		echo "Field-day Product missing at $(DATA_ROOT)/product/field_days. Run make run first."; \
+		exit 1; \
+	}
+	databricks bundle deploy
 
 clean:
 	rm -rf .pytest_cache .ruff_cache .coverage htmlcov data
