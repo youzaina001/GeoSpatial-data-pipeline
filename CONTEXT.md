@@ -1,6 +1,6 @@
 # GeoPipeline
 
-A GitHub portfolio pipeline that turns satellite imagery over an area of interest into field-level vegetation observations. The people who read and run it are the author and interviewers, not an operational farm.
+Synthetic satellite Scenes over an AOI become a Field-day table (one row per Field per date) with a real status and, when the Scene is usable, polygon-masked NDVI.
 
 ## Language
 
