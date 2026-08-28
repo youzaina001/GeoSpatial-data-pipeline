@@ -71,5 +71,8 @@ htmlcov/
 # Agents
 *.agents
 skills-lock.json
-CONTEXT.md
-docs/
+
+# Agent notes under docs/ stay local; glossary ADRs are public
+docs/*
+!docs/adr/
+!docs/adr/**

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -58,6 +59,40 @@ def test_product_parquet_stays_gitignored() -> None:
     text = (REPO / ".gitignore").read_text()
     assert "*.parquet" in text
     assert "/data/" in text
+    assert _is_git_ignored("data/product/field_days")
+    assert _is_git_ignored("data/product/field_days/date=2024-04-16/part.parquet")
+
+
+def test_context_and_adrs_are_not_gitignored() -> None:
+    gitignore_lines = (REPO / ".gitignore").read_text().splitlines()
+    assert "CONTEXT.md" not in gitignore_lines
+    assert "!docs/adr/" in gitignore_lines
+    assert "!docs/adr/**" in gitignore_lines
+    assert (REPO / "CONTEXT.md").is_file()
+    adrs = sorted((REPO / "docs" / "adr").glob("*.md"))
+    assert len(adrs) >= 15
+    assert not _is_git_ignored("CONTEXT.md")
+    assert not _is_git_ignored("docs/adr/0001-portfolio-not-operations.md")
+    assert _is_git_ignored("docs/agents/issue-tracker.md")
+
+
+def _is_git_ignored(relpath: str) -> bool:
+    """True when gitignore excludes relpath. A matching `!` pattern is not ignored."""
+    result = subprocess.run(
+        ["git", "check-ignore", "-v", "--no-index", relpath],
+        cwd=REPO,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 1:
+        return False
+    assert result.returncode == 0, (
+        f"git check-ignore failed for {relpath}: {result.stderr.strip()}"
+    )
+    meta = result.stdout.splitlines()[-1].split("\t", 1)[0]
+    pattern = meta.split(":", 2)[2]
+    return not pattern.startswith("!")
 
 
 def test_clone_default_stays_local() -> None:
