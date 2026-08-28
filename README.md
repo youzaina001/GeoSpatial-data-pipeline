@@ -1,12 +1,11 @@
 # GeoPipeline
 
-A GitHub portfolio pipeline: synthetic satellite Scenes over an AOI become a
-**Field-day** table (one row per Field per date) with a real status and, when
-the Scene is usable, polygon-masked NDVI.
+Synthetic satellite Scenes over an AOI become a **Field-day** table (one row
+per Field per date) with a real status and, when the Scene is usable,
+polygon-masked NDVI.
 
-Readers are the author and interviewers, not an operational farm. See
-[`CONTEXT.md`](CONTEXT.md) for the glossary and [`docs/adr/`](docs/adr/) for
-why the system looks like this.
+See [`CONTEXT.md`](CONTEXT.md) for the glossary and [`docs/adr/`](docs/adr/)
+for design decisions.
 
 ## What you get after a clone
 
@@ -103,4 +102,4 @@ Seams: `run()` (status order, backfill, Landing/Product, overwrite),
 | PyArrow      | Field-day Parquet                         |
 | DuckDB       | Local SQL over Product                    |
 | Airflow 3    | Optional DAG that calls `run_date`        |
-| Databricks   | SQL demo over an uploaded local Product   |
+| Databricks   | SQL over an uploaded local Product        |
