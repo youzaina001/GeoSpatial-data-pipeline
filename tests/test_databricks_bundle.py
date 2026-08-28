@@ -49,8 +49,15 @@ def test_make_databricks_backfills_then_deploys() -> None:
     assert "run" in databricks_block.splitlines()[0]
     assert "databricks bundle deploy" in databricks_block
     assert "product/field_days" in databricks_block
+    assert 'DATA_ROOT)" = "data"' in databricks_block
     help_block = _make_target(text, "help")
     assert "databricks" in help_block
+
+
+def test_product_parquet_stays_gitignored() -> None:
+    text = (REPO / ".gitignore").read_text()
+    assert "*.parquet" in text
+    assert "/data/" in text
 
 
 def test_clone_default_stays_local() -> None:

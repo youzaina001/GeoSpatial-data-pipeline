@@ -53,8 +53,12 @@ databricks: run
 		echo "Databricks CLI not found. Clone-default is: uv sync && make run && make query."; \
 		exit 1; \
 	}
-	@test -d $(DATA_ROOT)/product/field_days || { \
-		echo "Field-day Product missing at $(DATA_ROOT)/product/field_days. Run make run first."; \
+	@test "$(DATA_ROOT)" = "data" || { \
+		echo "make databricks syncs data/product/field_days; leave DATA_ROOT at data."; \
+		exit 1; \
+	}
+	@test -d data/product/field_days || { \
+		echo "Field-day Product missing at data/product/field_days. Run make run first."; \
 		exit 1; \
 	}
 	databricks bundle deploy

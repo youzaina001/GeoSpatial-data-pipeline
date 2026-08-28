@@ -4,13 +4,13 @@
 # MAGIC
 # MAGIC After `databricks bundle deploy`, Product is under the bundle
 # MAGIC `workspace.file_path`: `.../geopipeline/data/product/field_days`.
-# MAGIC Hand-upload alternative: `/FileStore/field_days`.
 # MAGIC This notebook only queries that Product. It does not ingest Scenes
 # MAGIC or compute NDVI.
 
 # COMMAND ----------
 
 # Must match databricks.yml workspace.file_path + data/product/field_days.
+# current_user() is the same identity as ${workspace.current_user.userName}.
 _user = spark.sql("SELECT current_user()").first()[0]
 product_path = f"/Workspace/Users/{_user}/geopipeline/data/product/field_days"
 

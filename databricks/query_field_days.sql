@@ -1,7 +1,6 @@
 -- Field-day Product — Databricks SQL
 -- After `databricks bundle deploy`, Product is at
 -- /Workspace/Users/<you>/geopipeline/data/product/field_days
--- (hand-upload alternative: /FileStore/field_days).
 -- This workspace does not generate rasters.
 
 -- CREATE OR REPLACE TABLE field_days
