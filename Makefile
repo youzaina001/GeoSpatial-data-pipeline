@@ -1,6 +1,6 @@
 # GeoPipeline — local Field-day backfill and query
 
-.PHONY: help install test lint typecheck check format clean run query validate databricks
+.PHONY: help install test test-airflow lint typecheck check format clean run query validate databricks
 
 SEASON_FROM ?= 2024-04-01
 SEASON_TO ?= 2024-05-15
@@ -11,6 +11,7 @@ help:
 	@echo ""
 	@echo "  make install    Install the package and development tools"
 	@echo "  make test       Run the test suite"
+	@echo "  make test-airflow Verify Airflow 3 DAG import with the airflow extra"
 	@echo "  make lint       Ruff check"
 	@echo "  make typecheck  Mypy typecheck"
 	@echo "  make check      Run test, lint, typecheck, and validate"
@@ -26,6 +27,9 @@ install:
 
 test:
 	uv run --extra dev python -m pytest tests/ -v
+
+test-airflow:
+	GEOPIPELINE_REQUIRE_AIRFLOW=1 uv run --frozen --extra dev --extra airflow python -m pytest tests/test_dag.py -rs -v
 
 test-cov:
 	uv run --extra dev python -m pytest tests/ -v --cov=geopipeline --cov-report=term-missing
