@@ -74,8 +74,8 @@ uv run geopipeline query --data-root data --sql "SELECT status, count(*) FROM fi
 
 [`dags/field_days_dag.py`](dags/field_days_dag.py) is one DAG with one task:
 `run_scheduled_date(ds)`. That function is unit-tested without a scheduler
-(and the DAG file imports if you `uv sync --extra airflow`). It is not wired
-to Databricks.
+(and `make test-airflow` verifies the real DAG import using `--extra airflow`).
+It is not wired to Databricks.
 
 ## Databricks Free Edition
 
@@ -99,6 +99,7 @@ always-on AWS. Kubernetes is prior art under [`archive/v0/`](archive/v0/)
 
 ```bash
 make test
+make test-airflow  # verifies real Airflow 3 DAG import with --extra airflow
 ```
 
 Seams: `run()` (status order, backfill, Landing/Product, overwrite),
