@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from airflow import DAG
 from airflow.decorators import task
@@ -27,7 +28,7 @@ with DAG(
 ) as dag:
 
     @task
-    def run_field_days(**context) -> str:
+    def run_field_days(**context: Any) -> str:
         return run_scheduled_date(context["ds"])
 
     run_field_days()

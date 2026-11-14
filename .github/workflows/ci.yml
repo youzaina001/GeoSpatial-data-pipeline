@@ -23,7 +23,7 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: make install
-      - name: Test and lint
-        run: make test lint
+      - name: Check (test, lint, typecheck, validate)
+        run: make check
       - name: Run sample-data demo
         run: make run query
