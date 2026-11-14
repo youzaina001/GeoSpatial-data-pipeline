@@ -9,7 +9,7 @@ DATA_ROOT ?= data
 help:
 	@echo "GeoPipeline"
 	@echo ""
-	@echo "  make install    Install the package (uv sync --all-extras)"
+	@echo "  make install    Install the package and development tools"
 	@echo "  make test       Run the test suite"
 	@echo "  make lint       Ruff check"
 	@echo "  make format     Ruff format"
@@ -20,19 +20,19 @@ help:
 	@echo "  make clean      Remove caches and local data/"
 
 install:
-	uv sync --all-extras
+	uv sync --extra dev --frozen
 
 test:
-	uv run pytest tests/ -v
+	uv run --extra dev python -m pytest tests/ -v
 
 test-cov:
-	uv run pytest tests/ -v --cov=geopipeline --cov-report=term-missing
+	uv run --extra dev python -m pytest tests/ -v --cov=geopipeline --cov-report=term-missing
 
 lint:
-	uv run ruff check src/ dags/ tests/
+	uv run --extra dev ruff check src/ dags/ tests/
 
 format:
-	uv run ruff format src/ dags/ tests/
+	uv run --extra dev ruff format src/ dags/ tests/
 
 run:
 	uv run geopipeline run --from $(SEASON_FROM) --to $(SEASON_TO) --data-root $(DATA_ROOT)

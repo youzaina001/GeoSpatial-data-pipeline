@@ -193,7 +193,7 @@ def _write_field_days(
     raster_path = (
         data_root / "landing" / "scenes" / f"date={day.isoformat()}" / "scene.tif"
     )
-    rows = {
+    rows: dict[str, list[Any]] = {
         "field_id": [],
         "date": [],
         "status": [],
