@@ -9,15 +9,26 @@ for design decisions.
 
 ## What you get after a clone
 
-```
-uv sync
+Use Python 3.12 or newer, [uv](https://docs.astral.sh/uv/getting-started/installation/)
+and Make. From a terminal:
+
+```bash
+git clone https://github.com/youzaina001/GeoSpatial-data-pipeline.git
+cd GeoSpatial-data-pipeline
+make install  # frozen dependencies, including development tools
 make run      # 2024-04-01 → 2024-05-15 into data/
 make query    # DuckDB over local Parquet
 make test
+make lint
 ```
 
 No Minikube, no AWS account, no Databricks workspace. The same Python is what
 the Airflow DAG calls; nobody has to start a scheduler.
+
+The fixture season produces 45 Parquet partitions and 900 unique Field-days.
+The status totals are 114 ineligible, 108 missing-scene, 122 cloudy and 556
+observed. Only the observed rows have NDVI. The query prints counts by date
+and status. Rerunning a date replaces that date's output.
 
 ## The product
 
@@ -87,7 +98,7 @@ always-on AWS. Kubernetes is prior art under [`archive/v0/`](archive/v0/)
 ## Tests
 
 ```bash
-uv run pytest tests/ -v
+make test
 ```
 
 Seams: `run()` (status order, backfill, Landing/Product, overwrite),
