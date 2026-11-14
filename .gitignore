@@ -42,10 +42,12 @@ ENV/
 .terraform.lock.hcl
 tfplan
 
-# Test coverage
+# Test coverage and tool caches
 .coverage
 htmlcov/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # Temporary files
 *.tmp

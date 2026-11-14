@@ -42,13 +42,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "run":
-        run(
-            args.start,
-            args.end,
-            data_root=args.data_root,
-            field_master=args.field_master,
-            scene_catalog=args.scene_catalog,
-        )
+        try:
+            run(
+                args.start,
+                args.end,
+                data_root=args.data_root,
+                field_master=args.field_master,
+                scene_catalog=args.scene_catalog,
+            )
+        except (ValueError, FileNotFoundError) as exc:
+            print(exc, file=sys.stderr)
+            return 1
         return 0
 
     from geopipeline.query import query_product

@@ -30,15 +30,15 @@ def query_product(data_root: str | Path, sql: str | None = None) -> str:
         )
 
     glob = str(data_root / "product" / "field_days" / "**" / "*.parquet")
-    con = duckdb.connect()
-    con.read_parquet(glob, hive_partitioning=True).create_view("field_days")
-    result = con.execute(sql or DEFAULT_SQL)
-    columns = [col[0] for col in result.description]
-    rows = result.fetchall()
+    with duckdb.connect() as con:
+        con.read_parquet(glob, hive_partitioning=True).create_view("field_days")
+        result = con.execute(sql or DEFAULT_SQL)
+        columns = [col[0] for col in result.description]
+        rows = result.fetchall()
     return _format_table(columns, rows)
 
 
-def _format_table(columns: list[str], rows: list[tuple]) -> str:
+def _format_table(columns: list[str], rows: list[tuple[object, ...]]) -> str:
     rendered = [
         [str(value) if value is not None else "" for value in row] for row in rows
     ]

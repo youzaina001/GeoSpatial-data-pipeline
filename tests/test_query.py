@@ -51,3 +51,11 @@ def test_query_accepts_custom_sql(tmp_path: Path) -> None:
 def test_query_fails_clearly_when_product_is_missing(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="Field-day Product"):
         query_product(tmp_path / "empty")
+
+
+def test_query_closes_duckdb_connection_and_types_rows() -> None:
+    query_src = (
+        Path(__file__).resolve().parents[1] / "src" / "geopipeline" / "query.py"
+    ).read_text()
+    assert "with duckdb.connect() as con:" in query_src
+    assert "rows: list[tuple[object, ...]]" in query_src

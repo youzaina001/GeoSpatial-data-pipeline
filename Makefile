@@ -1,6 +1,6 @@
 # GeoPipeline — local Field-day backfill and query
 
-.PHONY: help install test lint format clean run query validate databricks
+.PHONY: help install test lint typecheck check format clean run query validate databricks
 
 SEASON_FROM ?= 2024-04-01
 SEASON_TO ?= 2024-05-15
@@ -12,6 +12,8 @@ help:
 	@echo "  make install    Install the package and development tools"
 	@echo "  make test       Run the test suite"
 	@echo "  make lint       Ruff check"
+	@echo "  make typecheck  Mypy typecheck"
+	@echo "  make check      Run test, lint, typecheck, and validate"
 	@echo "  make format     Ruff format"
 	@echo "  make run        Backfill the fixture season into $(DATA_ROOT)"
 	@echo "  make query      DuckDB rollup of the local Product"
@@ -30,6 +32,11 @@ test-cov:
 
 lint:
 	uv run --extra dev ruff check src/ dags/ tests/
+
+typecheck:
+	uv run --extra dev mypy src/ dags/ tests/
+
+check: test lint typecheck validate
 
 format:
 	uv run --extra dev ruff format src/ dags/ tests/
@@ -64,5 +71,5 @@ databricks: run
 	databricks bundle deploy
 
 clean:
-	rm -rf .pytest_cache .ruff_cache .coverage htmlcov data
+	rm -rf .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov data
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
