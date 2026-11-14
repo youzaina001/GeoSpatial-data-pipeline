@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pyarrow.parquet as pq
+import pytest
 
 from geopipeline.cli import main
 from tests.helpers import write_tiny_fixtures
@@ -44,9 +45,68 @@ def test_cli_run_backfills_inclusive_date_range(tmp_path: Path) -> None:
 
 
 def test_cli_query_exits_nonzero_when_product_is_missing(
-    tmp_path: Path, capsys
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code = main(["query", "--data-root", str(tmp_path / "missing")])
     captured = capsys.readouterr()
     assert exit_code == 1
     assert "Field-day Product" in captured.err
+
+
+def test_cli_run_exits_nonzero_on_invalid_iso_date(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code = main(
+        [
+            "run",
+            "--from",
+            "not-a-date",
+            "--to",
+            "2024-04-16",
+            "--data-root",
+            str(tmp_path / "data"),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "not-a-date" in captured.err
+
+
+def test_cli_run_exits_nonzero_when_start_is_after_end(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code = main(
+        [
+            "run",
+            "--from",
+            "2024-04-16",
+            "--to",
+            "2024-04-15",
+            "--data-root",
+            str(tmp_path / "data"),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "start 2024-04-16 is after end 2024-04-15" in captured.err
+
+
+def test_cli_run_exits_nonzero_when_input_fixture_is_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code = main(
+        [
+            "run",
+            "--from",
+            "2024-04-15",
+            "--to",
+            "2024-04-16",
+            "--data-root",
+            str(tmp_path / "data"),
+            "--field-master",
+            str(tmp_path / "missing.geojson"),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "missing.geojson" in captured.err

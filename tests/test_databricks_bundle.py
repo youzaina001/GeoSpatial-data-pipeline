@@ -108,6 +108,23 @@ def test_clone_default_stays_local() -> None:
     assert "databricks bundle" not in query_block
 
 
+def test_ci_and_makefile_wire_typecheck_and_validate() -> None:
+    pyproject = (REPO / "pyproject.toml").read_text()
+    makefile = MAKEFILE_PATH.read_text()
+    ci_workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text()
+
+    assert '"mypy>=' in pyproject
+    typecheck_block = _make_target(makefile, "typecheck")
+    assert (
+        "mypy src/ dags/ tests/" in typecheck_block
+        or "mypy src/ tests/" in typecheck_block
+    )
+    check_block = _make_target(makefile, "check")
+    for required in ("test", "lint", "typecheck", "validate"):
+        assert required in check_block.splitlines()[0]
+    assert "make check" in ci_workflow
+
+
 def _make_target(makefile: str, name: str) -> str:
     lines = makefile.splitlines()
     start = None
