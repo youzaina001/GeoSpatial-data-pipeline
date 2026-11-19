@@ -17,6 +17,10 @@ ORDER BY 1, 2
 """
 
 
+class ProductReadError(RuntimeError):
+    """A Product read failed and can be reported by the CLI."""
+
+
 def query_product(data_root: str | Path, sql: str | None = None) -> str:
     """Run SQL against Product Parquet and return a text table."""
     import duckdb
@@ -30,11 +34,26 @@ def query_product(data_root: str | Path, sql: str | None = None) -> str:
         )
 
     glob = str(data_root / "product" / "field_days" / "**" / "*.parquet")
-    with duckdb.connect() as con:
-        con.read_parquet(glob, hive_partitioning=True).create_view("field_days")
-        result = con.execute(sql or DEFAULT_SQL)
-        columns = [col[0] for col in result.description]
-        rows = result.fetchall()
+    try:
+        with duckdb.connect() as con:
+            con.read_parquet(glob, hive_partitioning=True).create_view("field_days")
+            result = con.execute(sql or DEFAULT_SQL)
+            columns = [col[0] for col in result.description]
+            rows = result.fetchall()
+    except duckdb.Error as query_error:
+        # DuckDB can report a damaged page without identifying its file.
+        with duckdb.connect() as probe:
+            files = probe.execute("SELECT file FROM glob(?)", [glob]).fetchall()
+            for (file,) in files:
+                try:
+                    probe.read_parquet(file, hive_partitioning=False).fetchall()
+                except duckdb.Error as part_error:
+                    raise ProductReadError(
+                        f"Could not read Product part {file}: {part_error}"
+                    ) from part_error
+        if isinstance(query_error, (duckdb.IOException, duckdb.InvalidInputException)):
+            raise ProductReadError(str(query_error)) from query_error
+        raise
     return _format_table(columns, rows)
 
 

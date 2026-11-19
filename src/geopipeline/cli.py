@@ -55,13 +55,11 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
 
-    import duckdb
-
-    from geopipeline.query import query_product
+    from geopipeline.query import ProductReadError, query_product
 
     try:
         print(query_product(args.data_root, sql=args.sql))
-    except (FileNotFoundError, duckdb.IOException, duckdb.InvalidInputException) as exc:
+    except (FileNotFoundError, ProductReadError) as exc:
         print(exc, file=sys.stderr)
         return 1
     return 0

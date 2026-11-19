@@ -308,3 +308,29 @@ def test_cli_query_names_a_truncated_product_part(
     assert str(part) in output.err
     assert "Traceback" not in output.err
     assert not output.out
+
+
+def test_cli_query_names_a_product_part_with_a_damaged_page(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    field_master, catalog = write_tiny_fixtures(tmp_path / "fixtures")
+    data_root = tmp_path / "data"
+    assert _run_fixture(data_root, field_master, catalog, "2024-04-15") == 0
+    parts = data_root / "product" / "field_days"
+    healthy = parts / "date=2024-04-15" / "part.parquet"
+    damaged = parts / "date=2024-04-16" / "part.parquet"
+    with pq.ParquetFile(damaged) as parquet:
+        status_index = parquet.schema.names.index("status")
+        status = parquet.metadata.row_group(0).column(status_index)
+    offset = status.dictionary_page_offset or status.data_page_offset
+    length = min(24, status.total_compressed_size)
+    raw = damaged.read_bytes()
+    # Keep the footer readable so the error first surfaces during the scan.
+    damaged.write_bytes(raw[:offset] + b"\xff" * length + raw[offset + length :])
+
+    assert main(["query", "--data-root", str(data_root)]) == 1
+    output = capsys.readouterr()
+    assert str(damaged) in output.err
+    assert str(healthy) not in output.err
+    assert "Traceback" not in output.err
+    assert not output.out
