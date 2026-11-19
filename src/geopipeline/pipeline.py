@@ -16,11 +16,17 @@ import pyarrow.parquet as pq
 import rasterio
 from rasterio.transform import from_bounds
 
-from geopipeline.ndvi import ndvi_over_geometry
+from geopipeline.inputs import (
+    MISSING_SCENE,
+    Bounds,
+    Field,
+    Scene,
+    load_field_master,
+    load_scene_catalog,
+)
+from geopipeline.ndvi import ScenePixels
 
 RASTER_SIZE = 32
-DEFAULT_RED = 2000
-DEFAULT_NIR = 6000
 DEFAULT_DATA_ROOT = Path("data")
 DEFAULT_FIELD_MASTER = Path("fixtures/field_master.geojson")
 DEFAULT_SCENE_CATALOG = Path("fixtures/scene_catalog.json")
@@ -41,17 +47,20 @@ def run(
         raise ValueError(f"start {start_day} is after end {end_day}")
 
     data_root = Path(data_root)
-    fields, aoi = _load_field_master(Path(field_master))
-    catalog = _load_catalog(Path(scene_catalog))
+    master = load_field_master(Path(field_master))
+    catalog = load_scene_catalog(Path(scene_catalog))
 
     landing_fields = data_root / "landing" / "fields"
     landing_fields.mkdir(parents=True, exist_ok=True)
-    (landing_fields / "field_master.geojson").write_text(Path(field_master).read_text())
+    (landing_fields / "field_master.geojson").write_text(
+        master.source, encoding="utf-8"
+    )
 
     day = start_day
     while day <= end_day:
-        _write_scene(data_root, day, aoi, catalog)
-        _write_field_days(data_root, day, fields, catalog)
+        scene = catalog.get(day, MISSING_SCENE)
+        _write_scene(data_root, day, master.bbox, scene)
+        _write_field_days(data_root, day, master.fields, scene)
         day += timedelta(days=1)
 
 
@@ -93,41 +102,6 @@ def _as_date(value: str | date) -> date:
     return date.fromisoformat(value)
 
 
-def _load_field_master(path: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    payload = json.loads(path.read_text())
-    aoi = {
-        "name": payload.get("name", "aoi"),
-        "bbox": payload["bbox"],
-        "crs": "EPSG:4326",
-    }
-    fields = []
-    for feature in payload["features"]:
-        props = feature["properties"]
-        fields.append(
-            {
-                "field_id": props["field_id"],
-                "crop_type": props["crop_type"],
-                "planting_date": date.fromisoformat(props["planting_date"]),
-                "geometry": feature["geometry"],
-            }
-        )
-    return fields, aoi
-
-
-def _load_catalog(path: Path) -> dict[str, dict[str, Any]]:
-    return json.loads(path.read_text())
-
-
-def _scene_status(catalog: dict[str, dict[str, Any]], day: date) -> str:
-    entry = catalog.get(day.isoformat())
-    if entry is None:
-        return "missing"
-    status = entry["status"]
-    if status not in {"present", "cloudy", "missing"}:
-        raise ValueError(f"unknown Scene status {status!r} for {day}")
-    return status
-
-
 def _field_day_status(planting_date: date, day: date, scene_status: str) -> str:
     if day < planting_date:
         return "ineligible"
@@ -141,25 +115,21 @@ def _field_day_status(planting_date: date, day: date, scene_status: str) -> str:
 def _write_scene(
     data_root: Path,
     day: date,
-    aoi: dict[str, Any],
-    catalog: dict[str, dict[str, Any]],
+    bbox: Bounds,
+    scene: Scene,
 ) -> None:
-    scene_status = _scene_status(catalog, day)
-    entry = catalog.get(day.isoformat(), {})
     out_dir = data_root / "landing" / "scenes" / f"date={day.isoformat()}"
     out_dir.mkdir(parents=True, exist_ok=True)
-    record: dict[str, Any] = {"date": day.isoformat(), "status": scene_status}
-    if scene_status in {"present", "cloudy"}:
-        red = int(entry.get("red", DEFAULT_RED))
-        nir = int(entry.get("nir", DEFAULT_NIR))
-        record["red"] = red
-        record["nir"] = nir
-        _write_scene_raster(out_dir / "scene.tif", aoi["bbox"], red, nir)
+    record: dict[str, str | int] = {"date": day.isoformat(), "status": scene.status}
+    if scene.status != "missing":
+        record["red"] = scene.red
+        record["nir"] = scene.nir
+        _write_scene_raster(out_dir / "scene.tif", bbox, scene.red, scene.nir)
     (out_dir / "scene.json").write_text(json.dumps(record, indent=2))
 
 
 def _write_scene_raster(
-    path: Path, bbox: list[float], red: int, nir: int, size: int = RASTER_SIZE
+    path: Path, bbox: Bounds, red: int, nir: int, size: int = RASTER_SIZE
 ) -> None:
     west, south, east, north = bbox
     transform = from_bounds(west, south, east, north, size, size)
@@ -186,13 +156,13 @@ def _write_scene_raster(
 def _write_field_days(
     data_root: Path,
     day: date,
-    fields: list[dict[str, Any]],
-    catalog: dict[str, dict[str, Any]],
+    fields: list[Field],
+    scene: Scene,
 ) -> None:
-    scene_status = _scene_status(catalog, day)
     raster_path = (
         data_root / "landing" / "scenes" / f"date={day.isoformat()}" / "scene.tif"
     )
+    pixels = None
     rows: dict[str, list[Any]] = {
         "field_id": [],
         "date": [],
@@ -202,16 +172,21 @@ def _write_field_days(
         "planting_date": [],
     }
     for field in fields:
-        status = _field_day_status(field["planting_date"], day, scene_status)
+        status = _field_day_status(field.planting_date, day, scene.status)
         ndvi = None
         if status == "observed":
-            ndvi = ndvi_over_geometry(raster_path, field["geometry"])
-        rows["field_id"].append(field["field_id"])
+            if pixels is None:
+                pixels = ScenePixels.read(raster_path)
+            try:
+                ndvi = pixels.mean_ndvi(field.geometry)
+            except ValueError as exc:
+                raise ValueError(f"{day} Field {field.field_id!r}: {exc}") from exc
+        rows["field_id"].append(field.field_id)
         rows["date"].append(day)
         rows["status"].append(status)
         rows["ndvi"].append(ndvi)
-        rows["crop_type"].append(field["crop_type"])
-        rows["planting_date"].append(field["planting_date"])
+        rows["crop_type"].append(field.crop_type)
+        rows["planting_date"].append(field.planting_date)
 
     table = pa.table(
         {
