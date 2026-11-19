@@ -40,6 +40,8 @@ def query_product(data_root: str | Path, sql: str | None = None) -> str:
             result = con.execute(sql or DEFAULT_SQL)
             columns = [col[0] for col in result.description]
             rows = result.fetchall()
+    except (duckdb.ParserException, duckdb.BinderException, duckdb.CatalogException):
+        raise
     except duckdb.Error as query_error:
         # DuckDB can report a damaged page without identifying its file.
         with duckdb.connect() as probe:
@@ -48,9 +50,13 @@ def query_product(data_root: str | Path, sql: str | None = None) -> str:
                 try:
                     probe.read_parquet(file, hive_partitioning=False).fetchall()
                 except duckdb.Error as part_error:
-                    raise ProductReadError(
-                        f"Could not read Product part {file}: {part_error}"
-                    ) from part_error
+                    # Attribute the query failure to a part only if it reproduces it.
+                    if type(part_error) is type(query_error) and str(part_error) == str(
+                        query_error
+                    ):
+                        raise ProductReadError(
+                            f"Could not read Product part {file}: {part_error}"
+                        ) from part_error
         if isinstance(query_error, (duckdb.IOException, duckdb.InvalidInputException)):
             raise ProductReadError(str(query_error)) from query_error
         raise

@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pyarrow.parquet as pq
@@ -310,9 +312,8 @@ def test_cli_query_names_a_truncated_product_part(
     assert not output.out
 
 
-def test_cli_query_names_a_product_part_with_a_damaged_page(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+@pytest.fixture
+def product_with_damaged_page(tmp_path: Path) -> tuple[Path, Path, Path]:
     field_master, catalog = write_tiny_fixtures(tmp_path / "fixtures")
     data_root = tmp_path / "data"
     assert _run_fixture(data_root, field_master, catalog, "2024-04-15") == 0
@@ -327,6 +328,14 @@ def test_cli_query_names_a_product_part_with_a_damaged_page(
     raw = damaged.read_bytes()
     # Keep the footer readable so the error first surfaces during the scan.
     damaged.write_bytes(raw[:offset] + b"\xff" * length + raw[offset + length :])
+    return data_root, healthy, damaged
+
+
+def test_cli_query_names_a_product_part_with_a_damaged_page(
+    product_with_damaged_page: tuple[Path, Path, Path],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    data_root, healthy, damaged = product_with_damaged_page
 
     assert main(["query", "--data-root", str(data_root)]) == 1
     output = capsys.readouterr()
@@ -334,3 +343,36 @@ def test_cli_query_names_a_product_part_with_a_damaged_page(
     assert str(healthy) not in output.err
     assert "Traceback" not in output.err
     assert not output.out
+
+
+@pytest.mark.parametrize(
+    ("sql", "diagnostic"),
+    [
+        ("SELEC 1", "Parser Error"),
+        ("SELECT nope FROM field_days WHERE date = DATE '2024-04-15'", "Binder Error"),
+        ("SELECT CAST('invalid integer' AS INTEGER)", "Conversion Error"),
+    ],
+)
+def test_cli_query_preserves_sql_error_with_unrelated_damaged_part(
+    product_with_damaged_page: tuple[Path, Path, Path], sql: str, diagnostic: str
+) -> None:
+    data_root, _, damaged = product_with_damaged_page
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "geopipeline.cli",
+            "query",
+            "--data-root",
+            str(data_root),
+            "--sql",
+            sql,
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert diagnostic in result.stderr
+    assert str(damaged) not in result.stderr
+    assert not result.stdout
