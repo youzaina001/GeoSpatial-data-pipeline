@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -70,6 +71,18 @@ def is_allowed_archive_url(url: str, archive_host: str) -> bool:
     return parsed.hostname.lower() == archive_host.lower()
 
 
+def _validate_utc_iso8601(value: str, *, page_url: str) -> str:
+    if "T" not in value:
+        raise ValueError(f"captured_at must be UTC ISO-8601 with time component for {page_url}: {value}")
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"captured_at must be valid UTC ISO-8601 for {page_url}: {value}") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+        raise ValueError(f"captured_at must be in UTC (Z or +00:00) for {page_url}: {value}")
+    return value
+
+
 def _parse_capture_entry(
     raw: dict[str, Any],
     *,
@@ -77,7 +90,7 @@ def _parse_capture_entry(
     archive_host: str | None,
 ) -> CaptureEntry:
     page_url = _require_str(raw, "page_url")
-    captured_at = _require_str(raw, "captured_at")
+    captured_at = _validate_utc_iso8601(_require_str(raw, "captured_at"), page_url=page_url)
     replay_url_val = raw.get("replay_url")
     if replay_url_val is not None and not isinstance(replay_url_val, str):
         raise ValueError(f"replay_url must be a string or null for {page_url}")

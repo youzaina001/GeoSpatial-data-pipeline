@@ -7,17 +7,19 @@ import hashlib
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
+from typing import Literal
 
 from geopipeline.crawl.extract import Sentence, extract_sentences
 from geopipeline.crawl.manifest import SampleManifest
 
 SIMILARITY_THRESHOLD = 0.5
+PageStatus = Literal["compared", "comparison_incomplete"]
 
 
 @dataclass(frozen=True)
 class PageRow:
     page_url: str
-    status: str  # "compared" | "comparison_incomplete"
+    status: PageStatus
     earlier_capture_url: str | None
     later_capture_url: str | None
 

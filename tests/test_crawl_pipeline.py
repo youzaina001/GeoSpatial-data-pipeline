@@ -173,23 +173,52 @@ def test_comparison_incomplete_excluded_from_public_totals_and_logged_in_run_sum
 
 def test_run_summary_includes_side_by_side_current_comparison(tmp_path: Path) -> None:
     manifest_path = _write_sample(tmp_path / "sample")
-    current_path = tmp_path / "current.json"
-    output_path = tmp_path / "candidate.json"
+    output_path = tmp_path / "comparison.json"
     summary_path = tmp_path / "run-summary.json"
 
-    run_comparison(manifest_path, current_path, producing_commit="c" * 40)
+    run_comparison(manifest_path, output_path, producing_commit="c" * 40)
+    # In-place refresh: current_comparison_path == output_path must still capture prior commit "c"*40.
     run_comparison(
         manifest_path,
         output_path,
         summary_path=summary_path,
-        current_comparison_path=current_path,
+        current_comparison_path=output_path,
         producing_commit="d" * 40,
     )
 
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["first_release"] is False
-    assert summary["current"]["distinct_new_words"] == 1
-    assert summary["candidate"]["distinct_new_words"] == 1
+    assert summary["current"]["producing_commit"] == "c" * 40
+    assert summary["candidate"]["producing_commit"] == "d" * 40
+
+
+def test_corrupt_current_comparison_aborts_without_overwriting_output(tmp_path: Path) -> None:
+    manifest_path = _write_sample(tmp_path / "sample")
+    output_path = tmp_path / "comparison.json"
+    summary_path = tmp_path / "run-summary.json"
+    corrupt = "{not-json\n"
+    output_path.write_text(corrupt, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid current comparison"):
+        run_comparison(
+            manifest_path,
+            output_path,
+            summary_path=summary_path,
+            current_comparison_path=output_path,
+            producing_commit="e" * 40,
+        )
+
+    assert output_path.read_text(encoding="utf-8") == corrupt
+
+
+def test_manifest_rejects_non_utc_or_malformed_captured_at(tmp_path: Path) -> None:
+    manifest_path = _write_sample(tmp_path / "sample")
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    data["earlier"][0]["captured_at"] = "2025-10-02T00:07:37+02:00"
+    manifest_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="UTC"):
+        run_comparison(manifest_path, tmp_path / "out.json", producing_commit="f" * 40)
 
 
 def test_duckdb_prepublish_checks_reject_inconsistent_passage_records() -> None:

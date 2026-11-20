@@ -45,7 +45,7 @@ CHROME_TAGS = frozenset(
 
 WAYBACK_CHROME_IDS = frozenset({"wm-ipp-base", "wm-ipp", "donato"})
 
-PROSE_BLOCK_TAGS = frozenset(
+BLOCK_BOUNDARY_TAGS = frozenset(
     {
         "h1",
         "h2",
@@ -55,15 +55,27 @@ PROSE_BLOCK_TAGS = frozenset(
         "h6",
         "p",
         "li",
-        "blockquote",
-        "th",
-        "td",
+        "ul",
+        "ol",
+        "dl",
         "dt",
         "dd",
+        "blockquote",
+        "table",
+        "thead",
+        "tbody",
+        "tr",
+        "th",
+        "td",
+        "div",
+        "section",
+        "article",
+        "figure",
+        "figcaption",
+        "hr",
+        "pre",
     }
 )
-
-CONTAINER_BREAK_TAGS = frozenset({"ul", "ol", "dl", "table", "div", "section", "article", "hr"})
 
 PROSE_SKIP_TAGS = CHROME_TAGS | frozenset({"pre"})
 
@@ -95,14 +107,34 @@ def _get_attr(attrs: list[tuple[str, str | None]], name: str) -> str | None:
     return None
 
 
+def _is_skipped_element(
+    tag: str,
+    attrs: list[tuple[str, str | None]],
+    *,
+    skip_tags: frozenset[str],
+) -> bool:
+    if tag in skip_tags:
+        return True
+    if _get_attr(attrs, "id") in WAYBACK_CHROME_IDS:
+        return True
+    return _has_class(attrs, "sr-only")
+
+
+def _pop_matching(stack: list[str], tag: str) -> None:
+    for idx in range(len(stack) - 1, -1, -1):
+        if stack[idx] == tag:
+            del stack[idx:]
+            return
+
+
 class _SubtreeExtractor(HTMLParser):
-    """Extract the first matching element's inner HTML using proper HTML5 void-tag depth tracking."""
+    """Extract the first matching element's outer/inner HTML using tag-stack tracking."""
 
     def __init__(self, *, tag_name: str | None = None, class_name: str | None = None) -> None:
         super().__init__(convert_charrefs=False)
         self._tag_name = tag_name
         self._class_name = class_name
-        self._depth = 0
+        self._stack: list[str] = []
         self._done = False
         self._buf: list[str] = []
         self.outer_html: str | None = None
@@ -119,40 +151,40 @@ class _SubtreeExtractor(HTMLParser):
         if self._done:
             return
         raw = self.get_starttag_text() or f"<{tag}>"
-        if self._depth == 0:
+        if not self._stack:
             if self._matches(tag, attrs):
-                self._depth = 1
+                self._stack.append(tag)
                 self._buf = [raw]
             return
         if tag not in VOID_TAGS:
-            self._depth += 1
+            self._stack.append(tag)
         self._buf.append(raw)
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if self._done or self._depth == 0:
+        if self._done or not self._stack:
             return
         self._buf.append(self.get_starttag_text() or f"<{tag}/>")
 
     def handle_endtag(self, tag: str) -> None:
-        if self._done or self._depth == 0 or tag in VOID_TAGS:
+        if self._done or not self._stack or tag in VOID_TAGS:
             return
         self._buf.append(f"</{tag}>")
-        self._depth -= 1
-        if self._depth == 0:
+        _pop_matching(self._stack, tag)
+        if not self._stack:
             self._done = True
             self.outer_html = "".join(self._buf)
             self.inner_html = "".join(self._buf[1:-1])
 
     def handle_data(self, data: str) -> None:
-        if not self._done and self._depth > 0:
+        if not self._done and self._stack:
             self._buf.append(data)
 
     def handle_entityref(self, name: str) -> None:
-        if not self._done and self._depth > 0:
+        if not self._done and self._stack:
             self._buf.append(f"&{name};")
 
     def handle_charref(self, name: str) -> None:
-        if not self._done and self._depth > 0:
+        if not self._done and self._stack:
             self._buf.append(f"&#{name};")
 
 
@@ -161,51 +193,43 @@ class _ChromeStripper(HTMLParser):
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=False)
-        self._skip_depth = 0
+        self._skip_stack: list[str] = []
         self._out: list[str] = []
 
-    def _is_skipped_element(self, tag: str, attrs: list[tuple[str, str | None]]) -> bool:
-        if tag in CHROME_TAGS:
-            return True
-        elem_id = _get_attr(attrs, "id")
-        if elem_id in WAYBACK_CHROME_IDS:
-            return True
-        return _has_class(attrs, "sr-only")
-
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if self._skip_depth > 0:
+        if self._skip_stack:
             if tag not in VOID_TAGS:
-                self._skip_depth += 1
+                self._skip_stack.append(tag)
             return
-        if self._is_skipped_element(tag, attrs):
+        if _is_skipped_element(tag, attrs, skip_tags=CHROME_TAGS):
             if tag not in VOID_TAGS:
-                self._skip_depth = 1
+                self._skip_stack.append(tag)
             return
         self._out.append(self.get_starttag_text() or f"<{tag}>")
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if self._skip_depth > 0 or self._is_skipped_element(tag, attrs):
+        if self._skip_stack or _is_skipped_element(tag, attrs, skip_tags=CHROME_TAGS):
             return
         self._out.append(self.get_starttag_text() or f"<{tag}/>")
 
     def handle_endtag(self, tag: str) -> None:
         if tag in VOID_TAGS:
             return
-        if self._skip_depth > 0:
-            self._skip_depth -= 1
+        if self._skip_stack:
+            _pop_matching(self._skip_stack, tag)
             return
         self._out.append(f"</{tag}>")
 
     def handle_data(self, data: str) -> None:
-        if self._skip_depth == 0:
+        if not self._skip_stack:
             self._out.append(data)
 
     def handle_entityref(self, name: str) -> None:
-        if self._skip_depth == 0:
+        if not self._skip_stack:
             self._out.append(f"&{name};")
 
     def handle_charref(self, name: str) -> None:
-        if self._skip_depth == 0:
+        if not self._skip_stack:
             self._out.append(f"&#{name};")
 
     def result(self) -> str:
@@ -265,70 +289,68 @@ class _ProseBlockCollector(HTMLParser):
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self._skip_depth = 0
-        self._block_stack: list[tuple[str, list[str]]] = []
+        self._skip_stack: list[str] = []
+        self._in_paragraph = 0
+        self._current: list[str] = []
         self.blocks: list[str] = []
 
-    def _is_skipped(self, tag: str, attrs: list[tuple[str, str | None]]) -> bool:
-        if tag in PROSE_SKIP_TAGS:
-            return True
-        elem_id = _get_attr(attrs, "id")
-        if elem_id in WAYBACK_CHROME_IDS:
-            return True
-        return _has_class(attrs, "sr-only")
-
-    def _flush_top_text(self) -> None:
-        if not self._block_stack:
-            return
-        chunks = self._block_stack[-1][1]
-        if chunks:
-            text = "".join(chunks).strip()
+    def _flush(self) -> None:
+        if self._current:
+            text = "".join(self._current).strip()
             if text:
                 self.blocks.append(text)
-            chunks.clear()
+            self._current.clear()
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if self._skip_depth > 0:
+        if self._skip_stack:
             if tag not in VOID_TAGS:
-                self._skip_depth += 1
+                self._skip_stack.append(tag)
             return
-        if self._is_skipped(tag, attrs):
+        if _is_skipped_element(tag, attrs, skip_tags=PROSE_SKIP_TAGS):
+            self._flush()
             if tag not in VOID_TAGS:
-                self._skip_depth = 1
+                self._skip_stack.append(tag)
             return
         if tag == "br":
-            if self._block_stack:
-                self._block_stack[-1][1].append(" ")
+            if self._in_paragraph > 0:
+                self._current.append(" ")
+            else:
+                self._flush()
             return
-        if tag in PROSE_BLOCK_TAGS:
-            self._flush_top_text()
-            self._block_stack.append((tag, []))
-        elif tag in CONTAINER_BREAK_TAGS:
-            self._flush_top_text()
+        if tag in BLOCK_BOUNDARY_TAGS:
+            self._flush()
+        if tag == "p":
+            self._in_paragraph += 1
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if self._skip_depth > 0:
+        if self._skip_stack or _is_skipped_element(tag, attrs, skip_tags=PROSE_SKIP_TAGS):
             return
-        if tag == "br" and self._block_stack:
-            self._block_stack[-1][1].append(" ")
+        if tag == "br":
+            if self._in_paragraph > 0:
+                self._current.append(" ")
+            else:
+                self._flush()
+        elif tag in BLOCK_BOUNDARY_TAGS:
+            self._flush()
 
     def handle_endtag(self, tag: str) -> None:
         if tag in VOID_TAGS:
             return
-        if self._skip_depth > 0:
-            self._skip_depth -= 1
+        if self._skip_stack:
+            _pop_matching(self._skip_stack, tag)
             return
-        if tag in PROSE_BLOCK_TAGS and self._block_stack:
-            for idx in range(len(self._block_stack) - 1, -1, -1):
-                if self._block_stack[idx][0] == tag:
-                    while len(self._block_stack) > idx:
-                        self._flush_top_text()
-                        self._block_stack.pop()
-                    break
+        if tag == "p" and self._in_paragraph > 0:
+            self._in_paragraph -= 1
+        if tag in BLOCK_BOUNDARY_TAGS:
+            self._flush()
 
     def handle_data(self, data: str) -> None:
-        if self._skip_depth == 0 and self._block_stack:
-            self._block_stack[-1][1].append(data)
+        if not self._skip_stack:
+            self._current.append(data)
+
+    def finalize(self) -> list[str]:
+        self._flush()
+        return self.blocks
 
 
 def _normalize_text(raw: str) -> str:
@@ -340,15 +362,17 @@ def _normalize_text(raw: str) -> str:
 def extract_sentences(article_html: str) -> list[Sentence]:
     """Extract normalized prose sentences from article HTML.
 
-    Drops <pre> code blocks, keeps inline <code> tokens inside prose, folds case
-    to lowercase, and preserves contractions, hyphenated words, and dotted tokens.
+    Drops <pre> code blocks, keeps inline <code> tokens inside prose, preserves
+    bare inline headlines (such as changelog titles between <br> tags) and
+    <figcaption> captions, folds case to lowercase, and preserves contractions,
+    hyphenated words, and dotted technical tokens.
     """
     collector = _ProseBlockCollector()
     collector.feed(article_html)
     collector.close()
 
     sentences: list[Sentence] = []
-    for raw_block in collector.blocks:
+    for raw_block in collector.finalize():
         collapsed = _normalize_text(raw_block)
         if not collapsed:
             continue

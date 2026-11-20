@@ -84,3 +84,19 @@ def test_curly_apostrophes_normalize_to_straight_apostrophes() -> None:
         "block",
         "humans",
     )
+
+
+def test_bare_changelog_titles_and_figcaptions_are_extracted_as_prose() -> None:
+    html = """<article>
+      <h2>2026-03-24</h2><br>
+      <strong>Advanced WAF customization for AI Crawl Control blocks</strong><br>
+      <p>AI Crawl Control supports custom modifications.</p>
+      <figure><figcaption>Traffic overview chart caption.</figcaption></figure>
+    </article>"""
+    texts = [s.normalized_text for s in extract_sentences(html)]
+    assert texts == [
+        "2026-03-24",
+        "advanced waf customization for ai crawl control blocks",
+        "ai crawl control supports custom modifications",
+        "traffic overview chart caption",
+    ]

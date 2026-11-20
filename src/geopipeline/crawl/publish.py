@@ -99,17 +99,23 @@ def run_comparison(
         "pages": [page.to_dict() for page in metrics.pages],
     }
 
-    _write_json_atomic(output_path, public_payload)
-
+    summary_payload: dict[str, Any] | None = None
     if summary_path is not None:
         current_preview: dict[str, Any] | None = None
         first_release = True
         if current_comparison_path is not None and current_comparison_path.is_file():
-            current_data = json.loads(current_comparison_path.read_text(encoding="utf-8"))
-            current_preview = _preview_block(current_data)
+            try:
+                current_data = json.loads(
+                    current_comparison_path.read_text(encoding="utf-8")
+                )
+                current_preview = _preview_block(current_data)
+            except (json.JSONDecodeError, KeyError, TypeError) as exc:
+                raise ValueError(
+                    f"Invalid current comparison file at {current_comparison_path}"
+                ) from exc
             first_release = False
 
-        summary_payload: dict[str, Any] = {
+        summary_payload = {
             "schema_version": SCHEMA_VERSION,
             "sample_id": manifest.sample_id,
             "first_release": first_release,
@@ -117,7 +123,13 @@ def run_comparison(
             "current": current_preview,
             "excluded_pages": [diag.to_dict() for diag in matched.excluded_diagnostics],
         }
+
+    # Write outputs only after reading/validating the prior release so an in-place
+    # refresh (current_comparison_path == output_path) preserves prior figures and
+    # any parse error leaves the published comparison.json untouched.
+    if summary_path is not None and summary_payload is not None:
         _write_json_atomic(summary_path, summary_payload)
+    _write_json_atomic(output_path, public_payload)
 
     return public_payload
 

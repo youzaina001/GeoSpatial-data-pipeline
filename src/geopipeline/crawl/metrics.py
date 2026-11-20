@@ -8,13 +8,13 @@ from dataclasses import dataclass
 
 import duckdb
 
-from geopipeline.crawl.matching import PageRow, PassageRow
+from geopipeline.crawl.matching import PageRow, PageStatus, PassageRow
 
 
 @dataclass(frozen=True)
 class PageMetric:
     url: str
-    status: str
+    status: PageStatus
     new_words: int | None
     earlier_capture_url: str | None
     later_capture_url: str | None
@@ -126,7 +126,7 @@ def compute_metrics(
     page_metrics = tuple(
         PageMetric(
             url=str(url),
-            status=str(status),
+            status="compared" if str(status) == "compared" else "comparison_incomplete",
             new_words=None if new_words is None else int(new_words),
             earlier_capture_url=None if earlier_url is None else str(earlier_url),
             later_capture_url=None if later_url is None else str(later_url),
@@ -141,39 +141,41 @@ def compute_metrics(
     )
 
 
-def _verify_invariants(db: duckdb.DuckDBPyConnection) -> None:
-    invalid_status = db.execute(
-        "SELECT count(*) FROM pages WHERE status NOT IN ('compared', 'comparison_incomplete')"
-    ).fetchone()
-    assert invalid_status is not None
-    if invalid_status[0] != 0:
-        raise ValueError("Invalid page comparison status in pages table")
+def _assert_zero(db: duckdb.DuckDBPyConnection, sql: str, message: str) -> None:
+    row = db.execute(sql).fetchone()
+    assert row is not None
+    if row[0] != 0:
+        raise ValueError(message)
 
-    orphan_passages = db.execute(
+
+def _verify_invariants(db: duckdb.DuckDBPyConnection) -> None:
+    _assert_zero(
+        db,
+        "SELECT count(*) FROM pages WHERE status NOT IN ('compared', 'comparison_incomplete')",
+        "Invalid page comparison status in pages table",
+    )
+    _assert_zero(
+        db,
         """
         SELECT count(*)
         FROM passages p
         LEFT JOIN pages pg USING (page_url)
         WHERE pg.page_url IS NULL
-        """
-    ).fetchone()
-    assert orphan_passages is not None
-    if orphan_passages[0] != 0:
-        raise ValueError("Passages reference unknown page_url not present in pages")
-
-    incomplete_passages = db.execute(
+        """,
+        "Passages reference unknown page_url not present in pages",
+    )
+    _assert_zero(
+        db,
         """
         SELECT count(*)
         FROM passages p
         JOIN pages pg USING (page_url)
         WHERE pg.status != 'compared'
-        """
-    ).fetchone()
-    assert incomplete_passages is not None
-    if incomplete_passages[0] != 0:
-        raise ValueError("Excluded pages cannot have passage records")
-
-    conflicting_counts = db.execute(
+        """,
+        "Excluded pages cannot have passage records",
+    )
+    _assert_zero(
+        db,
         """
         SELECT count(*)
         FROM (
@@ -182,15 +184,11 @@ def _verify_invariants(db: duckdb.DuckDBPyConnection) -> None:
             GROUP BY passage_id
             HAVING count(DISTINCT word_count) > 1
         )
-        """
-    ).fetchone()
-    assert conflicting_counts is not None
-    if conflicting_counts[0] != 0:
-        raise ValueError("Conflicting word_count values found for the same passage_id")
-
-    non_positive = db.execute(
-        "SELECT count(*) FROM passages WHERE word_count <= 0"
-    ).fetchone()
-    assert non_positive is not None
-    if non_positive[0] != 0:
-        raise ValueError("Passage word_count must be strictly positive")
+        """,
+        "Conflicting word_count values found for the same passage_id",
+    )
+    _assert_zero(
+        db,
+        "SELECT count(*) FROM passages WHERE word_count <= 0",
+        "Passage word_count must be strictly positive",
+    )
