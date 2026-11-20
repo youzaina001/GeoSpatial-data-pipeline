@@ -1,0 +1,45 @@
+{
+  "sample_id": "cloudflare-ai-crawl-control",
+  "earlier_window": "2025-10",
+  "later_window": "2026-04",
+  "archive_host": "web.archive.org",
+  "attribution": {
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "authors": "Cloudflare, Inc. and Cloudflare Documentation contributors",
+    "source_url": "https://github.com/cloudflare/cloudflare-docs#license-and-legal-notices",
+    "modifications": "Extracted main article HTML (<h1 id='_top'> and sl-markdown-content) from Wayback Machine captures and removed navigation, footers, replay toolbars, scripts, and SVGs."
+  },
+  "earlier": [
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/",
+      "replay_url": "https://web.archive.org/web/20251002000737/https://developers.cloudflare.com/ai-crawl-control/",
+      "captured_at": "2025-10-02T00:07:37Z",
+      "file": "earlier/overview.html",
+      "sha256": "3fbf332a4f79d085fcb2af4a4ae3543fd1d343d15d5e12c4be079d2a00367ca1"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/changelog/",
+      "replay_url": "https://web.archive.org/web/20251012003851/https://developers.cloudflare.com/ai-crawl-control/changelog/",
+      "captured_at": "2025-10-12T00:38:51Z",
+      "file": "earlier/changelog.html",
+      "sha256": "e9d20fde3415e2ea29b794c0e70a15a8c4acb498cf373c0d62aaaaf713010d42"
+    }
+  ],
+  "later": [
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/",
+      "replay_url": "https://web.archive.org/web/20260429223141/https://developers.cloudflare.com/ai-crawl-control/",
+      "captured_at": "2026-04-29T22:31:41Z",
+      "file": "later/overview.html",
+      "sha256": "ed888f4775b150ec4439b4e74be4abb2bfae6a9c17299c72dedb7c2ccac72193"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/changelog/",
+      "replay_url": "https://web.archive.org/web/20260411015127/https://developers.cloudflare.com/ai-crawl-control/changelog/",
+      "captured_at": "2026-04-11T01:51:27Z",
+      "file": "later/changelog.html",
+      "sha256": "024e369209c6706c7911f447a6e62dbb2f3eb833315b76598d7a776e67e0b2ba"
+    }
+  ]
+}

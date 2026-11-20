@@ -39,6 +39,25 @@ def main(argv: list[str] | None = None) -> int:
         "--sql", default=None, help="DuckDB SQL; default is a status rollup"
     )
 
+    crawl_parser = sub.add_parser("crawl", help="Run offline crawl freshness comparisons")
+    crawl_sub = crawl_parser.add_subparsers(dest="crawl_command", required=True)
+
+    compare_parser = crawl_sub.add_parser(
+        "compare", help="Compare two archived crawl samples defined by manifest.json"
+    )
+    compare_parser.add_argument("--manifest", type=Path, required=True)
+    compare_parser.add_argument("--output", type=Path, required=True)
+    compare_parser.add_argument("--summary-output", type=Path, default=None)
+    compare_parser.add_argument("--current", type=Path, default=None)
+    compare_parser.add_argument("--commit", default=None)
+
+    demo_parser = crawl_sub.add_parser(
+        "demo", help="Run the offline demo on handwritten and bundled Cloudflare fixtures"
+    )
+    demo_parser.add_argument("--output-dir", type=Path, default=Path("data/crawl-demo"))
+    demo_parser.add_argument("--fixtures-root", type=Path, default=Path("fixtures"))
+    demo_parser.add_argument("--commit", default=None)
+
     args = parser.parse_args(argv)
 
     if args.command == "run":
@@ -50,6 +69,30 @@ def main(argv: list[str] | None = None) -> int:
                 field_master=args.field_master,
                 scene_catalog=args.scene_catalog,
             )
+        except (ValueError, FileNotFoundError) as exc:
+            print(exc, file=sys.stderr)
+            return 1
+        return 0
+
+    if args.command == "crawl":
+        from geopipeline.crawl.publish import run_comparison, run_offline_demo
+
+        try:
+            if args.crawl_command == "compare":
+                run_comparison(
+                    args.manifest,
+                    args.output,
+                    summary_path=args.summary_output,
+                    current_comparison_path=args.current,
+                    producing_commit=args.commit,
+                )
+            else:
+                hw_out, cf_out = run_offline_demo(
+                    args.output_dir,
+                    fixtures_root=args.fixtures_root,
+                    producing_commit=args.commit,
+                )
+                print(f"Wrote {hw_out} and {cf_out}")
         except (ValueError, FileNotFoundError) as exc:
             print(exc, file=sys.stderr)
             return 1
