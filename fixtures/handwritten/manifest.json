@@ -1,0 +1,39 @@
+{
+  "sample_id": "handwritten",
+  "earlier_window": "synthetic-earlier",
+  "later_window": "synthetic-later",
+  "archive_host": null,
+  "attribution": null,
+  "earlier": [
+    {
+      "page_url": "https://example.invalid/guide",
+      "replay_url": null,
+      "captured_at": "2025-10-01T00:00:00Z",
+      "file": "earlier/guide.html",
+      "sha256": "d38de52820bff947c9a902b7dbc2c4a367acf1c8c4ba5a5edc8b8cef171861df"
+    },
+    {
+      "page_url": "https://example.invalid/reference",
+      "replay_url": null,
+      "captured_at": "2025-10-01T00:00:00Z",
+      "file": "earlier/reference.html",
+      "sha256": "d38de52820bff947c9a902b7dbc2c4a367acf1c8c4ba5a5edc8b8cef171861df"
+    }
+  ],
+  "later": [
+    {
+      "page_url": "https://example.invalid/guide",
+      "replay_url": null,
+      "captured_at": "2026-04-01T00:00:00Z",
+      "file": "later/guide.html",
+      "sha256": "517f59467fba34974e76571e2cf2ae32f461046238ba8057ff84f57e6f9ab3be"
+    },
+    {
+      "page_url": "https://example.invalid/reference",
+      "replay_url": null,
+      "captured_at": "2026-04-01T00:00:00Z",
+      "file": "later/reference.html",
+      "sha256": "517f59467fba34974e76571e2cf2ae32f461046238ba8057ff84f57e6f9ab3be"
+    }
+  ]
+}

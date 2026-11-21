@@ -63,15 +63,15 @@ def test_product_parquet_stays_gitignored() -> None:
     assert _is_git_ignored("data/product/field_days/date=2024-04-16/part.parquet")
 
 
-def test_context_and_adrs_are_not_gitignored() -> None:
+def test_glossary_and_adrs_are_not_gitignored() -> None:
     gitignore_lines = (REPO / ".gitignore").read_text().splitlines()
-    assert "CONTEXT.md" not in gitignore_lines
+    assert "GLOSSARY.md" not in gitignore_lines
     assert "!docs/adr/" in gitignore_lines
     assert "!docs/adr/**" in gitignore_lines
-    assert (REPO / "CONTEXT.md").is_file()
+    assert (REPO / "GLOSSARY.md").is_file()
     adrs = sorted((REPO / "docs" / "adr").glob("*.md"))
     assert len(adrs) >= 15
-    assert not _is_git_ignored("CONTEXT.md")
+    assert not _is_git_ignored("GLOSSARY.md")
     assert not _is_git_ignored("docs/adr/0001-portfolio-not-operations.md")
     assert _is_git_ignored("docs/agents/issue-tracker.md")
 

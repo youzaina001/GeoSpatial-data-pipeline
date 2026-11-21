@@ -1,0 +1,53 @@
+<article>
+<h1 id="_top" class="astro-j6tvhyss">Changelog</h1>
+<a href="/web/20251012003851/https://developers.cloudflare.com/changelog/rss/ai-crawl-control.xml" class="inline-flex items-center justify-center gap-1 rounded-sm font-semibold no-underline" target="_blank"> Subscribe to RSS  </a>   <div tabindex="-1" class="heading-wrapper level-h2"><h2 id="2025-08-27">2025-08-27</h2><a class="anchor-link" href="#2025-08-27"><span aria-hidden="true" class="anchor-icon"></span></a></div> <br> <strong>Enhanced crawler insights and custom 402 responses</strong> <br> <p>We improved AI crawler management with detailed analytics and introduced custom HTTP 402 responses for blocked crawlers. AI Audit has been renamed to AI Crawl Control and is now generally available.</p>
+<p><strong>Enhanced Crawlers tab:</strong></p>
+<ul>
+<li>View total allowed and blocked requests for each AI crawler</li>
+<li>Trend charts show crawler activity over your selected time range per crawler</li>
+</ul>
+<starlight-image-zoom-zoomable><img src="/web/20251012003851im_/https://developers.cloudflare.com/_astro/ai-crawl-control-table.BDr0Qd-5_Z28yWEm.webp" alt="Updated AI Crawl Control table showing request counts and trend charts" loading="lazy" decoding="async" fetchpriority="auto" width="1335" height="984"></starlight-image-zoom-zoomable>
+<p><strong>Custom block responses (paid plans):</strong>
+You can now return HTTP 402 "Payment Required" responses when blocking AI crawlers, enabling direct communication with crawler operators about licensing terms.</p>
+<p>For users on paid plans, when blocking AI crawlers you can configure:</p>
+<ul>
+<li><strong>Response code:</strong> Choose between 403 Forbidden or 402 Payment Required</li>
+<li><strong>Response body:</strong> Add a custom message with your licensing contact information</li>
+</ul>
+<starlight-image-zoom-zoomable><img src="/web/20251012003851im_/https://developers.cloudflare.com/_astro/ai-crawl-control-block-response.L4duQj7-_ZjWQYT.webp" alt="AI Crawl Control block response configuration interface" loading="lazy" decoding="async" fetchpriority="auto" width="1327" height="419"></starlight-image-zoom-zoomable>
+<p>Example 402 response:</p>
+<div class="expressive-code"><link rel="stylesheet" href="/web/20251012003851cs_/https://developers.cloudflare.com/_astro/ec.wdcyp.css"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="http"><code><div class="ec-line"><div class="code"><span style="--0:#EEFFFF;--1:#62676A">HTTP 402 Payment Required</span></div></div><div class="ec-line"><div class="code"><span style="--0:#F38B90;--1:#A54E53">Date</span><span style="--0:#8EA7ED;--1:#00268F">:</span><span style="--0:#EEFFFF;--1:#62676A"> </span><span style="--0:#FDDA68;--1:#A84E00">Mon, 24 Aug 2025 12:56:49 GMT</span></div></div><div class="ec-line"><div class="code"><span style="--0:#F38B90;--1:#A54E53">Content-type</span><span style="--0:#8EA7ED;--1:#00268F">:</span><span style="--0:#EEFFFF;--1:#62676A"> </span><span style="--0:#FDDA68;--1:#A84E00">application/json</span></div></div><div class="ec-line"><div class="code"><span style="--0:#F38B90;--1:#A54E53">Server</span><span style="--0:#8EA7ED;--1:#00268F">:</span><span style="--0:#EEFFFF;--1:#62676A"> </span><span style="--0:#FDDA68;--1:#A84E00">cloudflare</span></div></div><div class="ec-line"><div class="code"><span style="--0:#F38B90;--1:#A54E53">Cf-Ray</span><span style="--0:#8EA7ED;--1:#00268F">:</span><span style="--0:#EEFFFF;--1:#62676A"> </span><span style="--0:#FDDA68;--1:#A84E00">967e8da599d0c3fa-EWR</span></div></div><div class="ec-line"><div class="code"><span style="--0:#F38B90;--1:#A54E53">Cf-Team</span><span style="--0:#8EA7ED;--1:#00268F">:</span><span style="--0:#EEFFFF;--1:#62676A"> </span><span style="--0:#FDDA68;--1:#A84E00">2902f6db750000c3fa1e2ef400000001</span></div></div><div class="ec-line"><div class="code">
+</div></div><div class="ec-line"><div class="code"><span style="--0:#89DDFF;--1:#007474">{</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#89DDFF;--1:#007474">"</span><span style="--0:#57C78F;--1:#00783C">message</span><span style="--0:#89DDFF;--1:#007474">"</span><span style="--0:#89DDFF;--1:#007474">:</span><span style="--0:#EEFFFF;--1:#62676A"> </span><span style="--0:#FDDA68;--1:#A84E00">"Please contact the site owner for access."</span></div></div><div class="ec-line"><div class="code"><span style="--0:#89DDFF;--1:#007474">}</span></div></div></code></pre><div class="copy"></div></figure></div>  <div tabindex="-1" class="heading-wrapper level-h2"><h2 id="2025-07-01">2025-07-01</h2><a class="anchor-link" href="#2025-07-01"><span aria-hidden="true" class="anchor-icon"></span></a></div> <br> <strong>Introducing Pay Per Crawl (private beta)</strong> <br> <p>We are introducing a new feature of <a href="/web/20251012003851/https://developers.cloudflare.com/ai-crawl-control/">AI Crawl Control</a> — Pay Per Crawl. <a href="/web/20251012003851/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/what-is-pay-per-crawl/">Pay Per Crawl</a> enables site owners to require payment from AI crawlers every time the crawlers access their content, thereby fostering a fairer Internet by enabling site owners to control and monetize how their content gets used by AI.</p>
+<starlight-image-zoom-zoomable><img src="/web/20251012003851im_/https://developers.cloudflare.com/_astro/pay-per-crawl.B5bv2nwT_Z1qUoVQ.webp" alt="Pay per crawl" loading="lazy" decoding="async" fetchpriority="auto" width="2926" height="1516"></starlight-image-zoom-zoomable>
+<p><strong>For Site Owners:</strong></p>
+<ul>
+<li>Set pricing and select which crawlers to charge for content access</li>
+<li>Manage payments via Stripe</li>
+<li>Monitor analytics on successful content deliveries</li>
+</ul>
+<p><strong>For AI Crawler Owners:</strong></p>
+<ul>
+<li>Use HTTP headers to request and accept pricing</li>
+<li>Receive clear confirmations on charges for accessed content</li>
+</ul>
+<p>Learn more in the <a href="/web/20251012003851/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/what-is-pay-per-crawl/">Pay Per Crawl documentation</a>.</p>  <div tabindex="-1" class="heading-wrapper level-h2"><h2 id="2025-07-01">2025-07-01</h2><a class="anchor-link" href="#2025-07-01"><span aria-hidden="true" class="anchor-icon"></span></a></div> <br> <strong>AI Crawl Control refresh</strong> <br> <p>We redesigned the AI Crawl Control dashboard to provide more intuitive and granular control over AI crawlers.</p>
+<ul>
+<li>From the new <strong>AI Crawlers</strong> tab: block specific AI crawlers.</li>
+<li>From the new <strong>Metrics</strong> tab: view AI Crawl Control metrics.</li>
+</ul>
+<starlight-image-zoom-zoomable><img src="/web/20251012003851im_/https://developers.cloudflare.com/_astro/manage-ai-crawlers.6UgS8dSG_12BsLg.webp" alt="Block AI crawlers" loading="lazy" decoding="async" fetchpriority="auto" width="1323" height="798"></starlight-image-zoom-zoomable>
+<starlight-image-zoom-zoomable><img src="/web/20251012003851im_/https://developers.cloudflare.com/_astro/analyze-metrics.C52pJZVg_Z1IvdY4.webp" alt="Analyze AI crawler activity" loading="lazy" decoding="async" fetchpriority="auto" width="1694" height="834"></starlight-image-zoom-zoomable>
+<p>To get started, explore:</p>
+<ul>
+<li><a href="/web/20251012003851/https://developers.cloudflare.com/ai-crawl-control/features/manage-ai-crawlers/">Manage AI crawlers</a>.</li>
+<li><a href="/web/20251012003851/https://developers.cloudflare.com/ai-crawl-control/features/analyze-ai-traffic/">Analyze AI traffic</a>.</li>
+</ul>  <div tabindex="-1" class="heading-wrapper level-h2"><h2 id="2024-09-23">2024-09-23</h2><a class="anchor-link" href="#2024-09-23"><span aria-hidden="true" class="anchor-icon"></span></a></div> <br> <strong>AI Crawl Control</strong> <br> <p>Every site on Cloudflare now has access to <a href="/web/20251012003851/https://developers.cloudflare.com/ai-crawl-control/"><strong>AI Audit</strong></a>, which summarizes the crawling behavior of popular and known AI services.</p>
+<p>You can use this data to:</p>
+<ul>
+<li>Understand how and how often crawlers access your site (and which content is the most popular).</li>
+<li>Block specific AI bots accessing your site.</li>
+<li>Use Cloudflare to enforce your <code dir="auto">robots.txt</code> policy via an automatic WAF rule.</li>
+</ul>
+<starlight-image-zoom-zoomable><img src="/web/20251012003851im_/https://developers.cloudflare.com/_astro/ai-crawl-control-overview.Dr_yGKOC_2kcoTJ.webp" alt="View AI bot activity with AI Audit" loading="lazy" decoding="async" fetchpriority="auto" width="1494" height="746"></starlight-image-zoom-zoomable>
+<p>To get started, explore <a href="/web/20251012003851/https://developers.cloudflare.com/ai-crawl-control/">AI audit</a>.</p>
+</article>
