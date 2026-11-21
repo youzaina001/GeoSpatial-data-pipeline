@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from geopipeline.crawl.manifest import is_allowed_archive_url, load_manifest
-from geopipeline.crawl.matching import PageRow, PassageRow
-from geopipeline.crawl.metrics import compute_metrics
+from geocrawl.manifest import is_allowed_archive_url, load_manifest
+from geocrawl.matching import PageRow, PassageRow
+from geocrawl.metrics import compute_metrics
 from tests.crawl_helpers import write_sample
 
 

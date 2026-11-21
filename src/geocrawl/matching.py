@@ -7,8 +7,8 @@ import hashlib
 from dataclasses import dataclass
 from typing import Literal
 
-from geopipeline.crawl.extract import Sentence, extract_sentences
-from geopipeline.crawl.manifest import CaptureEntry, SampleManifest
+from geocrawl.extract import Sentence, extract_sentences
+from geocrawl.manifest import CaptureEntry, SampleManifest
 
 RUN_LENGTH = 3
 CONTEXT_WORDS = RUN_LENGTH - 1

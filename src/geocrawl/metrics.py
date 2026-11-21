@@ -9,7 +9,7 @@ from typing import TypedDict
 
 import duckdb
 
-from geopipeline.crawl.matching import PageRow, PageStatus, PassageRow
+from geocrawl.matching import PageRow, PageStatus, PassageRow
 
 
 class PageMetricDict(TypedDict):

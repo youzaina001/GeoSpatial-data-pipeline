@@ -14,9 +14,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict, TypeGuard
 
-from geopipeline.crawl.manifest import SampleManifest, is_allowed_archive_url, load_manifest
-from geopipeline.crawl.matching import PageStatus, match_crawl
-from geopipeline.crawl.metrics import PageMetricDict, compute_metrics
+from geocrawl.manifest import SampleManifest, is_allowed_archive_url, load_manifest
+from geocrawl.matching import PageStatus, match_crawl
+from geocrawl.metrics import PageMetricDict, compute_metrics
 
 SCHEMA_VERSION = 1
 COMPARISON_FILE = "comparison.json"

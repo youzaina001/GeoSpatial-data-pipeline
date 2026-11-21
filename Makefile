@@ -1,11 +1,11 @@
-# GeoPipeline: offline crawl freshness pipeline
+# geocrawl: offline crawl freshness pipeline
 
-.PHONY: help install test test-cov lint typecheck check format clean crawl-demo
+.PHONY: help install test test-cov lint typecheck check format clean demo
 
 DATA_ROOT ?= data
 
 help:
-	@echo "GeoPipeline"
+	@echo "geocrawl"
 	@echo ""
 	@echo "  make install    Install the package and development tools"
 	@echo "  make test       Run the test suite"
@@ -13,7 +13,7 @@ help:
 	@echo "  make typecheck  Mypy typecheck"
 	@echo "  make check      Run test, lint, and typecheck"
 	@echo "  make format     Ruff format"
-	@echo "  make crawl-demo Offline crawl freshness demo (handwritten + Cloudflare)"
+	@echo "  make demo       Offline crawl freshness demo (handwritten + Cloudflare)"
 	@echo "  make clean      Remove caches and local data/"
 
 install:
@@ -23,7 +23,7 @@ test:
 	uv run --extra dev python -m pytest tests/ -v
 
 test-cov:
-	uv run --extra dev python -m pytest tests/ -v --cov=geopipeline --cov-report=term-missing
+	uv run --extra dev python -m pytest tests/ -v --cov=geocrawl --cov-report=term-missing
 
 lint:
 	uv run --extra dev ruff check src/ tests/
@@ -36,8 +36,8 @@ check: test lint typecheck
 format:
 	uv run --extra dev ruff format src/ tests/
 
-crawl-demo:
-	uv run geopipeline crawl demo --output-dir $(DATA_ROOT)/crawl-demo
+demo:
+	uv run geocrawl demo --output-dir $(DATA_ROOT)/demo
 
 clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov data

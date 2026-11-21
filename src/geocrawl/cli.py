@@ -1,4 +1,4 @@
-# geopipeline CLI
+# geocrawl CLI
 """Thin entrypoint: crawl freshness build, promote, and demo."""
 
 from __future__ import annotations
@@ -10,22 +10,19 @@ from pathlib import Path
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="geopipeline",
+        prog="geocrawl",
         description="Measure how much new prose a later web crawl adds.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    crawl_parser = sub.add_parser("crawl", help="Run offline crawl freshness comparisons")
-    crawl_sub = crawl_parser.add_subparsers(dest="crawl_command", required=True)
-
-    build_parser = crawl_sub.add_parser(
+    build_parser = sub.add_parser(
         "build",
         help="Build a candidate comparison into <runs-dir>/<UTC time>-<commit>/ (never publishes)",
     )
     build_parser.add_argument("--manifest", type=Path, required=True)
     build_parser.add_argument("--runs-dir", type=Path, required=True)
 
-    promote_parser = crawl_sub.add_parser(
+    promote_parser = sub.add_parser(
         "promote",
         help="Show a candidate beside the published comparison; publish it with --yes",
     )
@@ -35,22 +32,22 @@ def main(argv: list[str] | None = None) -> int:
         "--yes", action="store_true", help="Replace the published comparison"
     )
 
-    demo_parser = crawl_sub.add_parser(
+    demo_parser = sub.add_parser(
         "demo", help="Build offline candidates for the handwritten and bundled Cloudflare fixtures"
     )
-    demo_parser.add_argument("--output-dir", type=Path, default=Path("data/crawl-demo"))
+    demo_parser.add_argument("--output-dir", type=Path, default=Path("data/demo"))
     demo_parser.add_argument("--fixtures-root", type=Path, default=Path("fixtures"))
 
-    return _crawl(parser.parse_args(argv))
+    return _run(parser.parse_args(argv))
 
 
-def _crawl(args: argparse.Namespace) -> int:
-    from geopipeline.crawl.publish import build_run, promote, run_offline_demo
+def _run(args: argparse.Namespace) -> int:
+    from geocrawl.publish import build_run, promote, run_offline_demo
 
     try:
-        if args.crawl_command == "build":
+        if args.command == "build":
             print(f"Built candidate {build_run(args.manifest, args.runs_dir)}")
-        elif args.crawl_command == "promote":
+        elif args.command == "promote":
             result = promote(args.run, args.publish_dir, confirm=args.yes)
             print(result.preview)
             if not result.published:
