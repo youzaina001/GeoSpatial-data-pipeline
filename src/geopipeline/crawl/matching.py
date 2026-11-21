@@ -88,6 +88,7 @@ class _EarlierCorpus:
                     if length <= CONTEXT_WORDS:
                         anchors.setdefault(run, []).append((index, pos))
         self.runs = frozenset(runs)
+        self.two_word_sentences = frozenset(s for s in self.sentences if len(s) == CONTEXT_WORDS)
         self._anchors = anchors
 
     def differs_by_one_word(self, tokens: Tokens) -> int | None:
@@ -136,11 +137,24 @@ def _covered_words(tokens: Tokens, corpus: _EarlierCorpus) -> list[bool]:
             covered[pos : pos + width] = [True] * width
     if all(covered):
         return covered
-    if not any(covered):
-        # Too short for any run to survive one edit: a one-word change still adds one word.
-        changed = corpus.differs_by_one_word(tokens) if size >= 2 else None
-        if changed is not None:
-            covered = [pos != changed for pos in range(size)]
+
+    # One changed word in a copy of an earlier sentence adds one word (glossary), even when
+    # the edit leaves no run, or another sentence's run reaches past the changed word.
+    changed = corpus.differs_by_one_word(tokens) if size >= 2 else None
+    if changed is not None:
+        return [flag or pos != changed for pos, flag in enumerate(covered)]
+
+    # Merged sentences: a two-word earlier sentence at one edge counts as earlier wording when
+    # the other edge is earlier wording too. One-word headings never cover a word this way.
+    pair = CONTEXT_WORDS
+    if size > pair:
+        starts = tokens[:pair] in corpus.two_word_sentences
+        ends = tokens[-pair:] in corpus.two_word_sentences
+        if starts and (ends or covered[-1]):
+            covered[:pair] = [True] * pair
+        if ends and (starts or covered[0]):
+            covered[-pair:] = [True] * pair
+    if not any(covered) or all(covered):
         return covered
 
     # Uncovered end: align with earlier sentences that continue from the same covered words.

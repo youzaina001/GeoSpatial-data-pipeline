@@ -227,3 +227,27 @@ def test_one_changed_word_in_a_short_sentence_counts_one() -> None:
     assert _one("<p>We use fast requests now.</p>", "<p>We use slow requests now.</p>") == 1
     assert _one("<p>Fast crawlers read pages.</p>", "<p>Slow crawlers read pages.</p>") == 1
     assert _one("<p>Bots read pages fast.</p>", "<p>Bots read pages slowly.</p>") == 1
+
+
+def test_one_changed_word_already_in_earlier_wording_does_not_inflate_the_count() -> None:
+    # Spec review 2026-11-21 saw 2 here. "We use slow" is earlier wording, so the three-word
+    # rule covers "slow" and the copied rest is covered too: builder reading 0, owner to confirm.
+    assert _one(
+        "<p>We use fast requests now.</p><p>We use slow.</p>",
+        "<p>We use slow requests now.</p>",
+    ) == 0
+
+
+def test_merging_two_short_earlier_sentences_counts_only_the_joining_word() -> None:
+    assert _one("<p>Bots stop. Users wait.</p>", "<p>Bots stop and users wait.</p>") == 1
+
+
+def test_merging_a_short_sentence_into_a_long_one_counts_only_the_joining_word() -> None:
+    assert _one(
+        "<p>Bots stop. Users must wait for the crawler.</p>",
+        "<p>Bots stop and users must wait for the crawler.</p>",
+    ) == 1
+
+
+def test_a_one_word_earlier_heading_does_not_cover_words_in_new_headings() -> None:
+    assert _one("<h2>Analytics</h2>", "<h2>Analytics</h2><h2>Referral analytics</h2>") == 2
