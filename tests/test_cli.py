@@ -9,7 +9,8 @@ from geocrawl.cli import main
 
 
 @pytest.mark.parametrize("retired", ["run", "query", "crawl"])
-def test_satellite_commands_are_not_offered(retired: str) -> None:
+def test_satellite_commands_are_not_offered(retired: str, capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc:
         main([retired])
     assert exc.value.code == 2
+    assert f"invalid choice: '{retired}'" in capsys.readouterr().err

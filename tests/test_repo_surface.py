@@ -40,6 +40,8 @@ def test_makefile_and_ci_run_only_the_crawl_pipeline() -> None:
     targets = {line.split(":", 1)[0] for line in makefile.splitlines() if line and not line[0].isspace() and ":" in line}
     for retired in ("run", "query", "databricks", "test-airflow", "validate"):
         assert retired not in targets, retired
+    assert "crawl-demo" not in targets
+    assert "demo" in targets
     ci = (REPO / ".github" / "workflows" / "ci.yml").read_text()
     assert "airflow" not in ci.lower()
     assert "make run" not in ci
