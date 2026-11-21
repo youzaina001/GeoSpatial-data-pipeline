@@ -21,8 +21,8 @@ from geopipeline.crawl.metrics import compute_metrics
 SCHEMA_VERSION = 1
 COMPARISON_FILE = "comparison.json"
 SUMMARY_FILE = "run-summary.json"
-_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
-_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_COMMIT_RE = re.compile(r"[0-9a-f]{40}")
+_SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 Clock = Callable[[], datetime]
 
@@ -67,7 +67,7 @@ def resolve_clean_commit(manifest_path: Path) -> str:
     folder = manifest_path.resolve().parent
     head = _git(folder, "rev-parse", "--verify", "HEAD")
     commit = head.stdout.strip()
-    if head.returncode != 0 or not _COMMIT_RE.match(commit):
+    if head.returncode != 0 or not _COMMIT_RE.fullmatch(commit):
         raise ValueError(f"Cannot resolve producing commit for {folder}: {head.stderr.strip()}")
     status = _git(folder, "status", "--porcelain", "--untracked-files=all", "--", ".")
     if status.returncode != 0:
@@ -268,10 +268,10 @@ def _validate_comparison(data: object, source: Path) -> dict[str, Any]:
     if not isinstance(schema, int) or isinstance(schema, bool) or schema != SCHEMA_VERSION:
         raise bad(f"schema_version must be {SCHEMA_VERSION}")
     commit = data["producing_commit"]
-    if not isinstance(commit, str) or not _COMMIT_RE.match(commit):
+    if not isinstance(commit, str) or not _COMMIT_RE.fullmatch(commit):
         raise bad("producing_commit must be a 40-character commit hash")
     checksum = data["manifest_sha256"]
-    if not isinstance(checksum, str) or not _SHA256_RE.match(checksum):
+    if not isinstance(checksum, str) or not _SHA256_RE.fullmatch(checksum):
         raise bad("manifest_sha256 must be a 64-character SHA-256 hex digest")
     for key in ("sample_id", "earlier_window", "later_window"):
         if not isinstance(data[key], str):
@@ -294,6 +294,7 @@ def _validate_comparison(data: object, source: Path) -> dict[str, Any]:
     counts = {"compared": 0, "comparison_incomplete": 0}
     urls: set[str] = set()
     page_words = 0
+    largest_page = 0
     for page in pages:
         if not isinstance(page, dict) or set(page) != _PAGE_KEYS:
             raise bad(f"each page must be an object with exactly {sorted(_PAGE_KEYS)}")
@@ -317,14 +318,15 @@ def _validate_comparison(data: object, source: Path) -> dict[str, Any]:
             raise bad(f"page {url} has an inconsistent new_words")
         if status == "compared":
             page_words += words
+            largest_page = max(largest_page, words)
         counts[status] += 1
     expected = {"compared_pages": counts["compared"], "excluded_pages": counts["comparison_incomplete"]}
     for key, value in expected.items():
         if not _is_count(summary[key]) or summary[key] != value:
             raise bad("summary page counts do not match pages")
     total = summary["distinct_new_words"]
-    if not _is_count(total) or total > page_words:
-        raise bad("distinct_new_words must be a non-negative integer no larger than the page totals")
+    if not _is_count(total) or not largest_page <= total <= page_words:
+        raise bad("distinct_new_words must lie between the largest page count and the page totals")
     return data
 
 

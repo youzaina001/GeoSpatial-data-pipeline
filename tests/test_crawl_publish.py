@@ -453,6 +453,12 @@ _BAD_VALUES: dict[str, Any] = {
     "boolean schema version": lambda c: c.update(schema_version=True),
     "boolean page count": lambda c: c["summary"].update(excluded_pages=True),
     "more distinct words than page words": lambda c: c["summary"].update(distinct_new_words=9999),
+    "fewer distinct words than one page": lambda c: (
+        _compared(c).update(new_words=1),
+        c["summary"].update(distinct_new_words=0),
+    ),
+    "newline after the checksum": lambda c: c.update(manifest_sha256="b" * 64 + "\n"),
+    "newline after the producing commit": lambda c: c.update(producing_commit="a" * 40 + "\n"),
 }
 
 
