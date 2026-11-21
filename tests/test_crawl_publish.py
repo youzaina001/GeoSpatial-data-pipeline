@@ -401,3 +401,29 @@ def test_promotion_refuses_an_excluded_page_with_a_word_count(tmp_path: Path) ->
     with pytest.raises(ValueError, match="inconsistent new_words"):
         promote(run_dir, tmp_path / "site", confirm=True)
     assert not (tmp_path / "site" / "comparison.json").exists()
+
+
+def _tampered_excluded_page(tmp_path: Path, change: Any) -> Path:
+    manifest, _ = committed_sample(tmp_path / "repo", include_failed=True)
+    run_dir = build_run(manifest, tmp_path / "runs")
+    comparison = _json(run_dir / "comparison.json")
+    excluded = [p for p in comparison["pages"] if p["status"] == "comparison_incomplete"]
+    change(excluded[0])
+    (run_dir / "comparison.json").write_text(json.dumps(comparison), encoding="utf-8")
+    return run_dir
+
+
+def test_promotion_refuses_an_excluded_page_without_new_words(tmp_path: Path) -> None:
+    run_dir = _tampered_excluded_page(tmp_path, lambda page: page.pop("new_words"))
+    with pytest.raises(ValueError, match="Invalid comparison"):
+        promote(run_dir, tmp_path / "site", confirm=True)
+    assert not (tmp_path / "site").exists()
+
+
+def test_promotion_refuses_a_comparison_with_extra_fields(tmp_path: Path) -> None:
+    run_dir = _tampered_excluded_page(
+        tmp_path, lambda page: page.update(reason="HTTP 503 from Wayback replay")
+    )
+    with pytest.raises(ValueError, match="Invalid comparison"):
+        promote(run_dir, tmp_path / "site", confirm=True)
+    assert not (tmp_path / "site").exists()

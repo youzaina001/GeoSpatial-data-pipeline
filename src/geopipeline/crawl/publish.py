@@ -231,12 +231,34 @@ def build_run(manifest_path: Path, runs_dir: Path, *, now: Clock = _utc_now) -> 
 # Promotion.
 
 
+# ADR 0019: the public comparison carries these fields and nothing else.
+_ROOT_KEYS = frozenset(
+    {
+        "schema_version",
+        "sample_id",
+        "producing_commit",
+        "manifest_sha256",
+        "earlier_window",
+        "later_window",
+        "archive_host",
+        "attribution",
+        "summary",
+        "pages",
+    }
+)
+_SUMMARY_KEYS = frozenset({"compared_pages", "excluded_pages", "distinct_new_words"})
+_PAGE_KEYS = frozenset({"url", "status", "new_words", "earlier_capture_url", "later_capture_url"})
+_ATTRIBUTION_KEYS = frozenset({"license", "license_url", "authors", "source_url", "modifications"})
+
+
 def _validate_comparison(data: object, source: Path) -> dict[str, Any]:
     def bad(why: str) -> ValueError:
         return ValueError(f"Invalid comparison at {source}: {why}")
 
     if not isinstance(data, dict):
         raise bad("root must be an object")
+    if set(data) != _ROOT_KEYS:
+        raise bad(f"root keys must be exactly {sorted(_ROOT_KEYS)}")
     if data.get("schema_version") != SCHEMA_VERSION:
         raise bad(f"schema_version must be {SCHEMA_VERSION}")
     commit = data.get("producing_commit")
@@ -248,10 +270,21 @@ def _validate_comparison(data: object, source: Path) -> dict[str, Any]:
     summary, pages = data.get("summary"), data.get("pages")
     if not isinstance(summary, dict) or not isinstance(pages, list):
         raise bad("summary must be an object and pages a list")
+    if set(summary) != _SUMMARY_KEYS:
+        raise bad(f"summary keys must be exactly {sorted(_SUMMARY_KEYS)}")
+    attribution = data.get("attribution")
+    if attribution is not None and (
+        not isinstance(attribution, dict)
+        or set(attribution) != _ATTRIBUTION_KEYS
+        or not all(isinstance(value, str) for value in attribution.values())
+    ):
+        raise bad("attribution must be null or an object of the attribution strings")
     counts = {"compared": 0, "comparison_incomplete": 0}
     for page in pages:
         if not isinstance(page, dict) or page.get("status") not in counts:
             raise bad("each page needs a known status")
+        if set(page) != _PAGE_KEYS:
+            raise bad(f"page {page.get('url')} keys must be exactly {sorted(_PAGE_KEYS)}")
         words = page.get("new_words")
         if page["status"] == "compared":
             consistent = isinstance(words, int) and not isinstance(words, bool) and words >= 0
