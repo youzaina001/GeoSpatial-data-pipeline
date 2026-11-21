@@ -12,10 +12,11 @@ SATELLITE_ARCHIVE = REPO / "archive" / "v1-satellite"
 
 def test_satellite_dependencies_are_not_installed() -> None:
     project = tomllib.loads((REPO / "pyproject.toml").read_text())["project"]
-    names = " ".join(project["dependencies"])
+    extras = project.get("optional-dependencies", {})
+    names = " ".join([*project["dependencies"], *(dep for group in extras.values() for dep in group)])
     for retired in ("rasterio", "pyarrow", "numpy"):
         assert retired not in names
-    assert "airflow" not in project.get("optional-dependencies", {})
+    assert "airflow" not in extras
 
 
 def test_satellite_sources_live_in_the_archive() -> None:
