@@ -271,3 +271,94 @@ def test_many_images_in_one_paragraph_extract_in_linear_time() -> None:
     start = perf_counter()
     assert _article_texts(html) == ["first last"]
     assert perf_counter() - start < 1.0
+
+
+def test_a_hidden_line_break_adds_no_space() -> None:
+    # Codex round 5: a hidden <br> bypassed the hidden check and split the word.
+    assert _article_texts("<p>co<br hidden>operate</p>") == ["cooperate"]
+    assert _article_texts('<p>one<br aria-hidden="true"/>two</p>') == ["onetwo"]
+
+
+def test_tags_inside_skipped_controls_never_close_the_visible_block_around_them() -> None:
+    # Round 5 reviews: a block or cell inside <svg>, <select>, <noscript>, <label> or <button>
+    # closed the outer paragraph or cell, leaked the hidden text and dropped the rest.
+    assert _article_texts(
+        "<p>before <select><option>one</option><hr><option>two</option></select>after.</p>"
+    ) == ["before after"]
+    assert _article_texts(
+        "<p>First <svg><foreignObject><div>Label</div></foreignObject></svg> last.</p>"
+    ) == ["first last"]
+    assert _article_texts(
+        "<p>Icon <svg><foreignObject><p>Svg leak</p></foreignObject></svg> text.</p>"
+    ) == ["icon text"]
+    assert _article_texts("<p>Note <noscript><p>Enable JS</p></noscript> tail.</p>") == ["note tail"]
+    assert _article_texts("<p>Edit <noscript></p><p>Hidden leak</p></noscript> after.</p>") == [
+        "edit after"
+    ]
+    assert _article_texts("<p>Note <label><p>Label leak</p></label> tail.</p>") == ["note tail"]
+    assert _article_texts(
+        "<table><tr><td>Cell <button><td>Button td</td></button> end</td></tr></table>"
+    ) == ["cell end"]
+
+
+def test_closing_a_skipped_element_ends_everything_left_open_inside_it() -> None:
+    # Round 5 AGY: an unclosed cell, button or block inside skipped content kept it open,
+    # so every later paragraph was dropped.
+    later = "<p>Visible prose.</p>"
+    for skipped in (
+        "<template><tr><td>Draft cell</template>",
+        "<svg><foreignObject><p>Icon</foreignObject></svg>",
+        "<svg><div></svg>",
+        "<nav><button>Menu</nav>",
+        "<div hidden><button>Toggle</div>",
+        "<noscript><table><tr><td>Off</noscript>",
+    ):
+        assert _article_texts(skipped + later) == ["visible prose"], skipped
+
+
+def test_an_unclosed_control_inside_a_list_or_cell_ends_with_it() -> None:
+    assert _article_texts("<ul><li>Item <button>Menu</ul><p>Later prose.</p>") == [
+        "item",
+        "later prose",
+    ]
+    assert _article_texts("<table><tr><td>Cell <button>Go</td><td>Next</td></tr></table>") == [
+        "cell",
+        "next",
+    ]
+
+
+def test_a_dropped_block_inside_a_list_item_splits_it_like_any_block() -> None:
+    # Round 5 AGY: the text on both sides of a <pre> fused into "command.then".
+    assert _article_texts(
+        "<ul><li>Run this command.<pre><code>curl /</code></pre>Then check the status.</li></ul>"
+    ) == ["run this command", "then check the status"]
+    assert _article_texts("<ul><li>Alpha<pre>code</pre>Beta</li></ul>") == ["alpha", "beta"]
+    assert _article_texts("<ul><li>Alpha<div hidden>x</div>Beta</li></ul>") == ["alpha", "beta"]
+
+
+def test_a_new_row_or_cell_closes_an_open_caption() -> None:
+    assert _article_texts("<table><caption hidden>Hidden<tr><td>Visible</td></tr></table>") == [
+        "visible"
+    ]
+
+
+def test_a_self_closing_block_tag_opens_the_block_as_html_does() -> None:
+    link = "<a href='/rss.xml'>Subscribe</a>"
+    assert _article_texts(f"<p>Alpha<div/>{link}") == ["alpha"]
+    assert _article_texts("<p>Alpha<pre/><strong>Headline</strong>") == ["alpha"]
+
+
+def test_replay_extraction_closes_omitted_end_tags_like_prose_extraction() -> None:
+    # Round 5 AGY: the replay steps used plain tag stacks without HTML closing rules.
+    article = extract_article_html(
+        "<main><ul><li hidden>Secret<li>Visible item</ul><p>Later prose</p></main>"
+    )
+    assert [s.normalized_text for s in extract_sentences(article)] == ["visible item", "later prose"]
+    draft = extract_article_html("<main><p hidden>Draft<p>Visible article.</p></main>")
+    assert [s.normalized_text for s in extract_sentences(draft)] == ["visible article"]
+    banner = extract_article_html("<p hidden>Banner<main><p>Real article.</p></main>")
+    assert [s.normalized_text for s in extract_sentences(banner)] == ["real article"]
+    nav = extract_article_html(
+        "<main><p>Alpha<nav><a href='/'>Home</a></nav><a href='/rss.xml'>Subscribe</a></main>"
+    )
+    assert [s.normalized_text for s in extract_sentences(nav)] == ["alpha"]
