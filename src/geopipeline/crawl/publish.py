@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from geopipeline.crawl.manifest import SampleManifest, load_manifest
+from geopipeline.crawl.manifest import SampleManifest, is_allowed_archive_url, load_manifest
 from geopipeline.crawl.matching import match_crawl
 from geopipeline.crawl.metrics import compute_metrics
 
@@ -22,6 +22,7 @@ SCHEMA_VERSION = 1
 COMPARISON_FILE = "comparison.json"
 SUMMARY_FILE = "run-summary.json"
 _COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 Clock = Callable[[], datetime]
 
@@ -251,6 +252,10 @@ _PAGE_KEYS = frozenset({"url", "status", "new_words", "earlier_capture_url", "la
 _ATTRIBUTION_KEYS = frozenset({"license", "license_url", "authors", "source_url", "modifications"})
 
 
+def _is_count(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
 def _validate_comparison(data: object, source: Path) -> dict[str, Any]:
     def bad(why: str) -> ValueError:
         return ValueError(f"Invalid comparison at {source}: {why}")
@@ -259,20 +264,27 @@ def _validate_comparison(data: object, source: Path) -> dict[str, Any]:
         raise bad("root must be an object")
     if set(data) != _ROOT_KEYS:
         raise bad(f"root keys must be exactly {sorted(_ROOT_KEYS)}")
-    if data.get("schema_version") != SCHEMA_VERSION:
+    schema = data["schema_version"]
+    if not isinstance(schema, int) or isinstance(schema, bool) or schema != SCHEMA_VERSION:
         raise bad(f"schema_version must be {SCHEMA_VERSION}")
-    commit = data.get("producing_commit")
+    commit = data["producing_commit"]
     if not isinstance(commit, str) or not _COMMIT_RE.match(commit):
         raise bad("producing_commit must be a 40-character commit hash")
+    checksum = data["manifest_sha256"]
+    if not isinstance(checksum, str) or not _SHA256_RE.match(checksum):
+        raise bad("manifest_sha256 must be a 64-character SHA-256 hex digest")
     for key in ("sample_id", "earlier_window", "later_window"):
-        if not isinstance(data.get(key), str):
+        if not isinstance(data[key], str):
             raise bad(f"{key} must be a string")
-    summary, pages = data.get("summary"), data.get("pages")
+    archive_host = data["archive_host"]
+    if archive_host is not None and (not isinstance(archive_host, str) or not archive_host.strip()):
+        raise bad("archive_host must be a non-empty string or null")
+    summary, pages = data["summary"], data["pages"]
     if not isinstance(summary, dict) or not isinstance(pages, list):
         raise bad("summary must be an object and pages a list")
     if set(summary) != _SUMMARY_KEYS:
         raise bad(f"summary keys must be exactly {sorted(_SUMMARY_KEYS)}")
-    attribution = data.get("attribution")
+    attribution = data["attribution"]
     if attribution is not None and (
         not isinstance(attribution, dict)
         or set(attribution) != _ATTRIBUTION_KEYS
@@ -280,33 +292,56 @@ def _validate_comparison(data: object, source: Path) -> dict[str, Any]:
     ):
         raise bad("attribution must be null or an object of the attribution strings")
     counts = {"compared": 0, "comparison_incomplete": 0}
+    urls: set[str] = set()
+    page_words = 0
     for page in pages:
-        if not isinstance(page, dict) or page.get("status") not in counts:
-            raise bad("each page needs a known status")
-        if set(page) != _PAGE_KEYS:
-            raise bad(f"page {page.get('url')} keys must be exactly {sorted(_PAGE_KEYS)}")
-        words = page.get("new_words")
-        if page["status"] == "compared":
-            consistent = isinstance(words, int) and not isinstance(words, bool) and words >= 0
-        else:
-            consistent = words is None
+        if not isinstance(page, dict) or set(page) != _PAGE_KEYS:
+            raise bad(f"each page must be an object with exactly {sorted(_PAGE_KEYS)}")
+        url, status = page["url"], page["status"]
+        if not isinstance(url, str) or not url or url in urls:
+            raise bad("each page needs its own non-empty url string")
+        urls.add(url)
+        if not isinstance(status, str) or status not in counts:
+            raise bad(f"page {url} needs a known status")
+        for key in ("earlier_capture_url", "later_capture_url"):
+            link = page[key]
+            if link is None:
+                continue
+            if not isinstance(link, str) or (
+                archive_host is not None and not is_allowed_archive_url(link, archive_host)
+            ):
+                raise bad(f"page {url} has a disallowed {key}")
+        words = page["new_words"]
+        consistent = _is_count(words) if status == "compared" else words is None
         if not consistent:
-            raise bad(f"page {page.get('url')} has an inconsistent new_words")
-        counts[page["status"]] += 1
+            raise bad(f"page {url} has an inconsistent new_words")
+        if status == "compared":
+            page_words += words
+        counts[status] += 1
     expected = {"compared_pages": counts["compared"], "excluded_pages": counts["comparison_incomplete"]}
-    if {key: summary.get(key) for key in expected} != expected:
-        raise bad("summary page counts do not match pages")
-    total = summary.get("distinct_new_words")
-    if not isinstance(total, int) or isinstance(total, bool) or total < 0:
-        raise bad("distinct_new_words must be a non-negative integer")
+    for key, value in expected.items():
+        if not _is_count(summary[key]) or summary[key] != value:
+            raise bad("summary page counts do not match pages")
+    total = summary["distinct_new_words"]
+    if not _is_count(total) or total > page_words:
+        raise bad("distinct_new_words must be a non-negative integer no larger than the page totals")
     return data
+
+
+def _reject_duplicate_members(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate member {key!r}")
+        result[key] = value
+    return result
 
 
 def _read_comparison(path: Path) -> tuple[bytes, dict[str, Any]]:
     raw = path.read_bytes()
     try:
-        data = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        data = json.loads(raw.decode("utf-8"), object_pairs_hook=_reject_duplicate_members)
+    except ValueError as exc:
         raise ValueError(f"Invalid comparison at {path}: {exc}") from exc
     return raw, _validate_comparison(data, path)
 

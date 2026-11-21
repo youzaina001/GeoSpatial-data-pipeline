@@ -427,3 +427,58 @@ def test_promotion_refuses_a_comparison_with_extra_fields(tmp_path: Path) -> Non
     with pytest.raises(ValueError, match="Invalid comparison"):
         promote(run_dir, tmp_path / "site", confirm=True)
     assert not (tmp_path / "site").exists()
+
+
+def _excluded(comparison: dict[str, Any]) -> dict[str, Any]:
+    return next(p for p in comparison["pages"] if p["status"] == "comparison_incomplete")
+
+
+def _compared(comparison: dict[str, Any]) -> dict[str, Any]:
+    return next(p for p in comparison["pages"] if p["status"] == "compared")
+
+
+_BAD_VALUES: dict[str, Any] = {
+    "diagnostic in a capture link": lambda c: _excluded(c).update(
+        later_capture_url={"reason": "HTTP 503 from Wayback replay"}
+    ),
+    "capture link off the archive host": lambda c: _compared(c).update(
+        later_capture_url="https://evil.example/phish"
+    ),
+    "null checksum": lambda c: c.update(manifest_sha256=None),
+    "diagnostic in the checksum": lambda c: c.update(manifest_sha256={"reason": "HTTP 503"}),
+    "non-string archive host": lambda c: c.update(archive_host={"reason": "HTTP 503"}),
+    "non-string page url": lambda c: _compared(c).update(url={"reason": "HTTP 503"}),
+    "duplicate page url": lambda c: _excluded(c).update(url=_compared(c)["url"]),
+    "unhashable status": lambda c: _compared(c).update(status=[]),
+    "boolean schema version": lambda c: c.update(schema_version=True),
+    "boolean page count": lambda c: c["summary"].update(excluded_pages=True),
+    "more distinct words than page words": lambda c: c["summary"].update(distinct_new_words=9999),
+}
+
+
+@pytest.mark.parametrize("change", list(_BAD_VALUES.values()), ids=list(_BAD_VALUES))
+def test_promotion_refuses_malformed_public_values(tmp_path: Path, change: Any) -> None:
+    manifest, _ = committed_sample(tmp_path / "repo", include_failed=True)
+    run_dir = build_run(manifest, tmp_path / "runs")
+    comparison = _json(run_dir / "comparison.json")
+    change(comparison)
+    (run_dir / "comparison.json").write_text(json.dumps(comparison), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid comparison"):
+        promote(run_dir, tmp_path / "site", confirm=True)
+    assert not (tmp_path / "site").exists()
+
+
+def test_promotion_refuses_duplicate_json_members(tmp_path: Path) -> None:
+    manifest, _ = committed_sample(tmp_path / "repo", include_failed=True)
+    run_dir = build_run(manifest, tmp_path / "runs")
+    raw = (run_dir / "comparison.json").read_text(encoding="utf-8")
+    tampered = raw.replace(
+        '"new_words": null', '"new_words": {"reason": "HTTP 503"}, "new_words": null', 1
+    )
+    assert tampered != raw
+    (run_dir / "comparison.json").write_text(tampered, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid comparison"):
+        promote(run_dir, tmp_path / "site", confirm=True)
+    assert not (tmp_path / "site").exists()

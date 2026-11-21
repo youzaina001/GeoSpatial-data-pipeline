@@ -21,7 +21,7 @@ Before prose extraction starts, the pipeline verifies every bundled HTML file ag
 ## Folder layout
 
 * `crawl build --manifest <manifest> --runs-dir <runs>` writes `<runs>/<UTC time>-<commit>/comparison.json` and `run-summary.json`, for example under `data/crawl/runs/`. The UTC time has microsecond precision, so run folders sort by start time and never collide.
-* `crawl promote <run> --publish-dir <site> --yes` copies the candidate to `<site>/releases/<commit>/` and then replaces `<site>/comparison.json`. A release folder can itself be promoted, which is how a rollback works. Promotion refuses a run without a valid `comparison.json`, such as a failed run, and refuses to overwrite a release folder that holds a different comparison for the same commit.
+* `crawl promote <run> --publish-dir <site> --yes` copies the candidate to `<site>/releases/<commit>/` and then replaces `<site>/comparison.json`. A release folder can itself be promoted, which is how a rollback works. Promotion refuses a run without a valid `comparison.json`, such as a failed run, and refuses to overwrite a release folder that holds a different comparison for the same commit. A valid comparison has exactly the public fields above with their expected types and no repeated JSON member, a 64-character `manifest_sha256`, unique page URLs, capture links that pass the host allowlist below, and summary counts that match its pages.
 
 ## Host allowlist and atomic publication
 
