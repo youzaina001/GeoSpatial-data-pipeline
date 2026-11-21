@@ -40,6 +40,16 @@ def test_makefile_and_ci_run_only_the_crawl_pipeline() -> None:
     targets = {line.split(":", 1)[0] for line in makefile.splitlines() if line and not line[0].isspace() and ":" in line}
     for retired in ("run", "query", "databricks", "test-airflow", "validate"):
         assert retired not in targets, retired
+    assert "crawl-demo" not in targets
+    assert "demo" in targets
     ci = (REPO / ".github" / "workflows" / "ci.yml").read_text()
     assert "airflow" not in ci.lower()
     assert "make run" not in ci
+
+
+def test_project_is_named_geocrawl() -> None:
+    project = tomllib.loads((REPO / "pyproject.toml").read_text())["project"]
+    assert project["name"] == "geocrawl"
+    assert project["scripts"] == {"geocrawl": "geocrawl.cli:main"}
+    assert (REPO / "src" / "geocrawl" / "publish.py").is_file()
+    assert not (REPO / "src" / "geopipeline").exists()

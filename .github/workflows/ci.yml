@@ -26,4 +26,4 @@ jobs:
       - name: Check (test, lint, typecheck)
         run: make check
       - name: Run offline crawl freshness demo
-        run: make crawl-demo
+        run: make demo

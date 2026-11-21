@@ -1,4 +1,4 @@
-# GeoPipeline
+# geocrawl glossary
 
 ## Crawl freshness
 

@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
-from geopipeline.crawl.extract import extract_sentences
-from geopipeline.crawl.matching import match_pages
-from geopipeline.crawl.metrics import compute_metrics
+from geocrawl.extract import extract_sentences
+from geocrawl.matching import match_pages
+from geocrawl.metrics import compute_metrics
 
 
 def _run(earlier: dict[str, str], later: dict[str, str]) -> tuple[dict[str, int | None], int]:

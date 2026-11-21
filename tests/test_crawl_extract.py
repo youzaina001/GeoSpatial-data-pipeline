@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from geopipeline.crawl.extract import extract_article_html, extract_sentences
+from geocrawl.extract import extract_article_html, extract_sentences
 
 
 def test_extract_article_html_strips_wayback_chrome_and_site_navigation() -> None:

@@ -12,10 +12,10 @@ from pathlib import Path
 
 import pytest
 
-from geopipeline.cli import main
-from geopipeline.crawl import publish
-from geopipeline.crawl.manifest import CaptureEntry, SampleManifest
-from geopipeline.crawl.publish import BuildFailed, build_run, promote, run_offline_demo
+from geocrawl.cli import main
+from geocrawl import publish
+from geocrawl.manifest import CaptureEntry, SampleManifest
+from geocrawl.publish import BuildFailed, build_run, promote, run_offline_demo
 from tests.crawl_helpers import (
     REPO,
     commit_all,
@@ -374,7 +374,7 @@ def test_demo_refuses_dirty_fixtures(tmp_path: Path) -> None:
 
 
 def test_cli_crawl_demo_builds_candidates_for_both_samples(tmp_path: Path) -> None:
-    code = main(["crawl", "demo", "--output-dir", str(tmp_path), "--fixtures-root", str(REPO / "fixtures")])
+    code = main(["demo", "--output-dir", str(tmp_path), "--fixtures-root", str(REPO / "fixtures")])
     assert code == 0
     head = git(REPO, "rev-parse", "HEAD")
 
@@ -397,18 +397,18 @@ def test_cli_crawl_demo_builds_candidates_for_both_samples(tmp_path: Path) -> No
 def test_cli_build_and_promote_round_trip(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     manifest, head = committed_sample(tmp_path / "repo")
     runs = tmp_path / "runs"
-    assert main(["crawl", "build", "--manifest", str(manifest), "--runs-dir", str(runs)]) == 0
+    assert main(["build", "--manifest", str(manifest), "--runs-dir", str(runs)]) == 0
     run_dir = _only_run(runs)
     assert str(run_dir) in capsys.readouterr().out
 
     site = tmp_path / "site"
-    assert main(["crawl", "promote", str(run_dir), "--publish-dir", str(site)]) == 1
+    assert main(["promote", str(run_dir), "--publish-dir", str(site)]) == 1
     out = capsys.readouterr()
     assert "first release" in out.out
     assert "--yes" in out.err
     assert not (site / "comparison.json").exists()
 
-    assert main(["crawl", "promote", str(run_dir), "--publish-dir", str(site), "--yes"]) == 0
+    assert main(["promote", str(run_dir), "--publish-dir", str(site), "--yes"]) == 0
     assert _json(site / "comparison.json")["producing_commit"] == head
 
 
@@ -421,7 +421,7 @@ def test_cli_build_reports_malformed_manifest_without_a_traceback(
     manifest.write_text(json.dumps(data), encoding="utf-8")
     commit_all(tmp_path / "repo", "null entry")
 
-    code = main(["crawl", "build", "--manifest", str(manifest), "--runs-dir", str(tmp_path / "runs")])
+    code = main(["build", "--manifest", str(manifest), "--runs-dir", str(tmp_path / "runs")])
     assert code == 1
     assert "JSON object" in capsys.readouterr().err
     assert _json(_only_run(tmp_path / "runs") / "run-summary.json")["status"] == "failed"
@@ -430,7 +430,7 @@ def test_cli_build_reports_malformed_manifest_without_a_traceback(
 def test_cli_build_refuses_dirty_inputs(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     manifest, _ = committed_sample(tmp_path / "repo")
     (manifest.parent / "later" / "ok.html").write_text("<p>edited</p>", encoding="utf-8")
-    code = main(["crawl", "build", "--manifest", str(manifest), "--runs-dir", str(tmp_path / "runs")])
+    code = main(["build", "--manifest", str(manifest), "--runs-dir", str(tmp_path / "runs")])
     assert code == 1
     assert "uncommitted changes" in capsys.readouterr().err
 
@@ -438,9 +438,9 @@ def test_cli_build_refuses_dirty_inputs(tmp_path: Path, capsys: pytest.CaptureFi
 @pytest.mark.parametrize(
     "argv",
     [
-        ["crawl", "demo", "--commit", "bogus"],
-        ["crawl", "build", "--manifest", "m.json", "--runs-dir", "r", "--commit", "bogus"],
-        ["crawl", "compare", "--manifest", "m.json", "--output", "o.json"],
+        ["demo", "--commit", "bogus"],
+        ["build", "--manifest", "m.json", "--runs-dir", "r", "--commit", "bogus"],
+        ["compare", "--manifest", "m.json", "--output", "o.json"],
     ],
 )
 def test_cli_has_no_commit_override_and_no_compare_command(argv: list[str]) -> None:
