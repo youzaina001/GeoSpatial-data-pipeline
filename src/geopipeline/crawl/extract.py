@@ -165,7 +165,8 @@ class _SubtreeExtractor(HTMLParser):
                 if tag not in VOID_TAGS:
                     self._ignore_stack.append(tag)
                 return
-            if _is_skipped_element(tag, attrs, skip_tags=HIDDEN_TAGS):
+            # ADR 0018: the prose skip rules also decide where the article can be.
+            if _is_skipped_element(tag, attrs, skip_tags=PROSE_SKIP_TAGS):
                 if tag not in VOID_TAGS:
                     self._ignore_stack.append(tag)
                 return

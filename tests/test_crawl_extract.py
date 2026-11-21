@@ -189,3 +189,23 @@ def test_article_selection_skips_screen_reader_only_and_wayback_chrome_container
     )
     sentences = [s.normalized_text for s in extract_sentences(extract_article_html(replay))]
     assert sentences == ["visible article"]
+
+
+def test_article_selection_skips_ui_chrome_and_code_block_containers() -> None:
+    replay = (
+        "<aside><article><p>Related item.</p></article></aside>"
+        "<nav><article><p>Nav card.</p></article></nav>"
+        "<pre><article><p>Code sample.</p></article></pre>"
+        "<article><p>Visible article.</p></article>"
+    )
+    sentences = [s.normalized_text for s in extract_sentences(extract_article_html(replay))]
+    assert sentences == ["visible article"]
+
+
+def test_title_selection_skips_a_heading_inside_navigation() -> None:
+    replay = (
+        "<main><nav><h1>Nav title</h1></nav><h1>Real title</h1>"
+        '<div class="sl-markdown-content"><p>Body.</p></div></main>'
+    )
+    sentences = [s.normalized_text for s in extract_sentences(extract_article_html(replay))]
+    assert sentences == ["real title", "body"]
