@@ -16,9 +16,9 @@ Python supplies two tables for each comparison.
 Python reads the article HTML recorded in the manifest and keeps visible prose blocks:
 
 * headings, paragraphs, list items, blockquotes, table cells and `<figcaption>` captions;
-* a `<strong>` element that sits directly in the article body, outside any other block. Cloudflare's changelog writes each entry's headline this way.
+* a `<strong>` element outside any prose block (whether directly inside the article body or inside a layout wrapper `<div>`). Cloudflare's changelog writes each entry's headline this way, and its overview page wraps related-product titles inside card `<div>` containers.
 
-Text outside those blocks, such as a bare link styled as a button, is not prose. Python also drops:
+Text outside those blocks, such as a bare link styled as a button, is not prose. Prose inside a `<details>` element (including an initially collapsed `<details>` without `open`) counts as visible article prose unless the `<details>` element or an ancestor is hidden. Python also drops:
 
 * hidden content: elements with the `hidden` attribute or `aria-hidden="true"`, and `<template>`, `<script>`, `<style>`, `<noscript>`, `<iframe>` and `<textarea>`;
 * UI controls: `<button>`, `<label>`, `<select>`, `<option>`, `<input>`, `<form>` and `<nav>`, plus screen reader only text;
@@ -26,7 +26,7 @@ Text outside those blocks, such as a bare link styled as a button, is not prose.
 
 Python reads the HTML as a browser does. It builds the element tree with Lexbor, through the `selectolax` package, which follows the WHATWG HTML parsing rules with scripting on. Omitted end tags, stray end tags, self-closing tags and misnested markup therefore resolve as in a browser: a new list item or table cell ends the previous one, a `<p>` inside a `<label>` ends the paragraph and the label, an end tag for an inline element such as `</span>` never closes a block inside it, `<svg/>` closes itself and `<div/>` opens a `<div>`. Text that a browser keeps inside a dropped element, such as a paragraph left open inside an `<svg>`, is dropped with it. `<template>` content is not part of the page, and `<noscript>` content is raw text, as in a browser that runs scripts. Any block, including a dropped one such as `<pre>`, `<nav>`, a hidden `<div>` or a hidden `<hr>`, ends the text before and after it, so a dropped block inside a list item, table cell or quote splits it. A `<br>` inside a block is a space, and a hidden `<br>` adds nothing. Character references are decoded once, so `&amp;nbsp;` stays the visible text `&nbsp;`. The same tree selects the `<main>` or `<article>` element from a full replay page, so a `<main>` inside a `<template>` is never chosen. Stripping that element's chrome leaves an empty element where it removes a block, so replay and direct extraction give the same blocks.
 
-Saved article fragments use HTML standards mode for sentence extraction. Full replay pages use the document mode selected by their original doctype, including quirks mode when it is absent.
+Saved article fragments use HTML standards mode for sentence extraction. Full replay pages use the document mode selected by their original doctype, including quirks mode when it is absent; replay extraction splits any quirks-mode `<p>` around a nested `<table>` so the saved fragment preserves the same prose blocks when re-parsed in standards mode.
 
 Python splits each block into sentences at `.`, `!` or `?` followed by optional closing quotes or brackets and a space. Common abbreviations such as "e.g." do not end a sentence. Python lowercases each sentence and splits it into words. Contractions, hyphenated words and dotted or underscored technical identifiers (such as `robots.txt`) stay single words.
 

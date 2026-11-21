@@ -6,14 +6,15 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from geopipeline.cli import main
 from geopipeline.crawl import publish
+from geopipeline.crawl.manifest import CaptureEntry, SampleManifest
 from geopipeline.crawl.publish import BuildFailed, build_run, promote, run_offline_demo
 from tests.crawl_helpers import (
     REPO,
@@ -29,7 +30,19 @@ from tests.crawl_helpers import (
 RUN_NAME = re.compile(r"^\d{8}T\d{6}\.\d{6}Z-[0-9a-f]{40}$")
 
 
-def _json(path: Path) -> dict[str, Any]:
+def _as_dict(value: object) -> dict[str, object]:
+    assert isinstance(value, dict)
+    return value
+
+
+def _as_dict_list(value: object) -> list[dict[str, object]]:
+    assert isinstance(value, list)
+    for item in value:
+        assert isinstance(item, dict)
+    return value
+
+
+def _json(path: Path) -> dict[str, object]:
     data = json.loads(path.read_text(encoding="utf-8"))
     assert isinstance(data, dict)
     return data
@@ -50,7 +63,7 @@ def test_edited_fixture_with_updated_checksum_is_refused_before_any_run(tmp_path
     later = manifest.parent / "later" / "ok.html"
     later.write_text("<article><p>The default timeout is thirty seconds forever now.</p></article>")
     data = _json(manifest)
-    data["later"][0]["sha256"] = sha256_of(later)
+    _as_dict_list(data["later"])[0]["sha256"] = sha256_of(later)
     manifest.write_text(json.dumps(data), encoding="utf-8")
 
     runs = tmp_path / "runs"
@@ -82,6 +95,65 @@ def test_gitignored_input_named_by_the_manifest_is_refused(tmp_path: Path) -> No
         build_run(manifest, runs)
     summary = _json(_only_run(runs) / "run-summary.json")
     assert summary["status"] == "failed"
+
+
+def test_gitignored_wildcard_filename_is_refused(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    (repo / ".gitignore").write_text("samples/synthetic/earlier/\\*.html\n", encoding="utf-8")
+    manifest = write_sample(repo / "samples" / "synthetic")
+    commit_all(repo)
+
+    wildcard_file = manifest.parent / "earlier" / "*.html"
+    wildcard_file.write_text("<article><p>Untracked wildcard.</p></article>", encoding="utf-8")
+    data = _json(manifest)
+    earlier = _as_dict_list(data["earlier"])
+    earlier[0]["file"] = "earlier/*.html"
+    earlier[0]["sha256"] = sha256_of(wildcard_file)
+    manifest.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    commit_all(repo, "reference untracked wildcard filename")
+
+    runs = tmp_path / "runs"
+    with pytest.raises(BuildFailed, match="not tracked"):
+        build_run(manifest, runs)
+    run_dir = _only_run(runs)
+    assert not (run_dir / "comparison.json").exists()
+    summary = _json(run_dir / "run-summary.json")
+    assert summary["status"] == "failed"
+
+
+def test_processing_runtime_error_writes_failed_run_summary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest, _ = committed_sample(tmp_path / "repo")
+    data = _json(manifest)
+    _as_dict_list(data["later"])[0]["page_url"] = "https://a.invalid/\ud800"
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    commit_all(tmp_path / "repo", "surrogate url")
+
+    runs_real = tmp_path / "runs-real"
+    with pytest.raises(BuildFailed, match="UTF-8"):
+        build_run(manifest, runs_real)
+    real_run = _only_run(runs_real)
+    assert not (real_run / "comparison.json").exists()
+    real_summary = _json(real_run / "run-summary.json")
+    assert real_summary["status"] == "failed"
+    assert _as_dict(real_summary["error"])["failed_step"] == "load_manifest"
+
+    # Also verify non-ValueError runtime failures inside DuckDB/matching still emit failed run-summary.json.
+    entry = CaptureEntry("https://a.invalid/\ud800", None, "2026-04-01T00:00:00Z", text="<p>One two three.</p>")
+    bad_manifest = SampleManifest("demo", "early", "late", None, (), (entry,))
+    monkeypatch.setattr(publish, "resolve_clean_commit", lambda _path: "a" * 40)
+    monkeypatch.setattr(publish, "load_manifest", lambda _path: (bad_manifest, "b" * 64))
+    monkeypatch.setattr(publish, "_check_inputs_tracked", lambda _path, _m: None)
+
+    runs_mock = tmp_path / "runs-mock"
+    with pytest.raises(BuildFailed):
+        build_run(Path("manifest.json"), runs_mock)
+    mock_run = _only_run(runs_mock)
+    assert not (mock_run / "comparison.json").exists()
+    mock_summary = _json(mock_run / "run-summary.json")
+    assert mock_summary["status"] == "failed"
+    assert _as_dict(mock_summary["error"])["failed_step"] == "compute_metrics"
 
 
 def test_clean_build_stamps_head_and_names_the_run_folder(tmp_path: Path) -> None:
@@ -280,7 +352,7 @@ def test_demo_runs_checks_before_writing_anything(tmp_path: Path) -> None:
     guide.write_text("<p>The default timeout is thirty long seconds.</p>\n", encoding="utf-8")
     manifest = fixtures / "handwritten" / "manifest.json"
     data = _json(manifest)
-    data["later"][0]["sha256"] = sha256_of(guide)
+    _as_dict_list(data["later"])[0]["sha256"] = sha256_of(guide)
     manifest.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     commit_all(tmp_path / "repo", "break the hand calculation")
 
@@ -310,7 +382,7 @@ def test_cli_crawl_demo_builds_candidates_for_both_samples(tmp_path: Path) -> No
     hw = _json(hw_run / "comparison.json")
     assert hw["producing_commit"] == head
     assert hw["summary"] == {"compared_pages": 2, "excluded_pages": 0, "distinct_new_words": 1}
-    assert [(p["url"], p["new_words"]) for p in hw["pages"]] == [
+    assert [(p["url"], p["new_words"]) for p in _as_dict_list(hw["pages"])] == [
         ("https://example.invalid/guide", 1),
         ("https://example.invalid/reference", 1),
     ]
@@ -318,7 +390,7 @@ def test_cli_crawl_demo_builds_candidates_for_both_samples(tmp_path: Path) -> No
     cf = _json(_only_run(tmp_path / "cloudflare-ai-crawl-control" / "runs") / "comparison.json")
     assert cf["archive_host"] == "web.archive.org"
     assert cf["summary"] == {"compared_pages": 2, "excluded_pages": 0, "distinct_new_words": 1358}
-    assert cf["attribution"]["license"] == "CC BY 4.0"
+    assert _as_dict(cf["attribution"])["license"] == "CC BY 4.0"
     assert not (tmp_path / "handwritten" / "comparison.json").exists()
 
 
@@ -393,7 +465,7 @@ def test_promotion_refuses_an_excluded_page_with_a_word_count(tmp_path: Path) ->
     manifest, _ = committed_sample(tmp_path / "repo", include_failed=True)
     run_dir = build_run(manifest, tmp_path / "runs")
     comparison = _json(run_dir / "comparison.json")
-    excluded = [p for p in comparison["pages"] if p["status"] == "comparison_incomplete"]
+    excluded = [p for p in _as_dict_list(comparison["pages"]) if p["status"] == "comparison_incomplete"]
     assert excluded and all(p["new_words"] is None for p in excluded)
     excluded[0]["new_words"] = "broken"
     (run_dir / "comparison.json").write_text(json.dumps(comparison), encoding="utf-8")
@@ -403,11 +475,11 @@ def test_promotion_refuses_an_excluded_page_with_a_word_count(tmp_path: Path) ->
     assert not (tmp_path / "site" / "comparison.json").exists()
 
 
-def _tampered_excluded_page(tmp_path: Path, change: Any) -> Path:
+def _tampered_excluded_page(tmp_path: Path, change: Callable[[dict[str, object]], object]) -> Path:
     manifest, _ = committed_sample(tmp_path / "repo", include_failed=True)
     run_dir = build_run(manifest, tmp_path / "runs")
     comparison = _json(run_dir / "comparison.json")
-    excluded = [p for p in comparison["pages"] if p["status"] == "comparison_incomplete"]
+    excluded = [p for p in _as_dict_list(comparison["pages"]) if p["status"] == "comparison_incomplete"]
     change(excluded[0])
     (run_dir / "comparison.json").write_text(json.dumps(comparison), encoding="utf-8")
     return run_dir
@@ -429,15 +501,15 @@ def test_promotion_refuses_a_comparison_with_extra_fields(tmp_path: Path) -> Non
     assert not (tmp_path / "site").exists()
 
 
-def _excluded(comparison: dict[str, Any]) -> dict[str, Any]:
-    return next(p for p in comparison["pages"] if p["status"] == "comparison_incomplete")
+def _excluded(comparison: dict[str, object]) -> dict[str, object]:
+    return next(p for p in _as_dict_list(comparison["pages"]) if p["status"] == "comparison_incomplete")
 
 
-def _compared(comparison: dict[str, Any]) -> dict[str, Any]:
-    return next(p for p in comparison["pages"] if p["status"] == "compared")
+def _compared(comparison: dict[str, object]) -> dict[str, object]:
+    return next(p for p in _as_dict_list(comparison["pages"]) if p["status"] == "compared")
 
 
-_BAD_VALUES: dict[str, Any] = {
+_BAD_VALUES: dict[str, Callable[[dict[str, object]], object]] = {
     "diagnostic in a capture link": lambda c: _excluded(c).update(
         later_capture_url={"reason": "HTTP 503 from Wayback replay"}
     ),
@@ -451,11 +523,11 @@ _BAD_VALUES: dict[str, Any] = {
     "duplicate page url": lambda c: _excluded(c).update(url=_compared(c)["url"]),
     "unhashable status": lambda c: _compared(c).update(status=[]),
     "boolean schema version": lambda c: c.update(schema_version=True),
-    "boolean page count": lambda c: c["summary"].update(excluded_pages=True),
-    "more distinct words than page words": lambda c: c["summary"].update(distinct_new_words=9999),
+    "boolean page count": lambda c: _as_dict(c["summary"]).update(excluded_pages=True),
+    "more distinct words than page words": lambda c: _as_dict(c["summary"]).update(distinct_new_words=9999),
     "fewer distinct words than one page": lambda c: (
         _compared(c).update(new_words=1),
-        c["summary"].update(distinct_new_words=0),
+        _as_dict(c["summary"]).update(distinct_new_words=0),
     ),
     "newline after the checksum": lambda c: c.update(manifest_sha256="b" * 64 + "\n"),
     "newline after the producing commit": lambda c: c.update(producing_commit="a" * 40 + "\n"),
@@ -463,7 +535,9 @@ _BAD_VALUES: dict[str, Any] = {
 
 
 @pytest.mark.parametrize("change", list(_BAD_VALUES.values()), ids=list(_BAD_VALUES))
-def test_promotion_refuses_malformed_public_values(tmp_path: Path, change: Any) -> None:
+def test_promotion_refuses_malformed_public_values(
+    tmp_path: Path, change: Callable[[dict[str, object]], object]
+) -> None:
     manifest, _ = committed_sample(tmp_path / "repo", include_failed=True)
     run_dir = build_run(manifest, tmp_path / "runs")
     comparison = _json(run_dir / "comparison.json")

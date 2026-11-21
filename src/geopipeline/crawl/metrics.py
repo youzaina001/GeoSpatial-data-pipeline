@@ -5,10 +5,19 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import TypedDict
 
 import duckdb
 
 from geopipeline.crawl.matching import PageRow, PageStatus, PassageRow
+
+
+class PageMetricDict(TypedDict):
+    url: str
+    status: PageStatus
+    new_words: int | None
+    earlier_capture_url: str | None
+    later_capture_url: str | None
 
 
 @dataclass(frozen=True)
@@ -19,7 +28,7 @@ class PageMetric:
     earlier_capture_url: str | None
     later_capture_url: str | None
 
-    def to_dict(self) -> dict[str, object]:
+    def to_dict(self) -> PageMetricDict:
         return {
             "url": self.url,
             "status": self.status,

@@ -12,11 +12,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TypedDict, TypeGuard
 
 from geopipeline.crawl.manifest import SampleManifest, is_allowed_archive_url, load_manifest
-from geopipeline.crawl.matching import match_crawl
-from geopipeline.crawl.metrics import compute_metrics
+from geopipeline.crawl.matching import PageStatus, match_crawl
+from geopipeline.crawl.metrics import PageMetricDict, compute_metrics
 
 SCHEMA_VERSION = 1
 COMPARISON_FILE = "comparison.json"
@@ -85,7 +85,7 @@ def _check_inputs_tracked(manifest_path: Path, manifest: SampleManifest) -> None
     names = [manifest_path.name] + [
         entry.file for entry in (*manifest.earlier, *manifest.later) if entry.file is not None
     ]
-    tracked = _git(folder, "ls-files", "--error-unmatch", "--", *names)
+    tracked = _git(folder, "--literal-pathspecs", "ls-files", "--error-unmatch", "--", *names)
     if tracked.returncode != 0:
         raise ValueError(f"Manifest input is not tracked by git: {tracked.stderr.strip()}")
 
@@ -93,15 +93,60 @@ def _check_inputs_tracked(manifest_path: Path, manifest: SampleManifest) -> None
 # Candidate computation (in memory; nothing is written here).
 
 
+class ComparisonSummary(TypedDict):
+    compared_pages: int
+    excluded_pages: int
+    distinct_new_words: int
+
+
+class ComparisonDocument(TypedDict):
+    schema_version: int
+    sample_id: str
+    producing_commit: str
+    manifest_sha256: str
+    earlier_window: str
+    later_window: str
+    archive_host: str | None
+    attribution: dict[str, str] | None
+    summary: ComparisonSummary
+    pages: list[PageMetricDict]
+
+
+class CandidateFigures(TypedDict):
+    earlier_window: str
+    later_window: str
+    compared_pages: int
+    excluded_pages: int
+    distinct_new_words: int
+
+
+class RunErrorDict(TypedDict):
+    failed_step: str
+    reason: str
+
+
+class RunSummaryDocument(TypedDict):
+    schema_version: int
+    run_id: str
+    started_at: str
+    status: str
+    producing_commit: str
+    sample_id: str | None
+    manifest_sha256: str | None
+    candidate: CandidateFigures | None
+    excluded_pages: list[dict[str, str]]
+    error: RunErrorDict | None
+
+
 @dataclass(frozen=True)
 class Candidate:
     manifest_path: Path
     commit: str
-    comparison: dict[str, Any]
+    comparison: ComparisonDocument
     excluded_pages: list[dict[str, str]]
 
 
-def _figures(comparison: dict[str, Any]) -> dict[str, Any]:
+def _figures(comparison: ComparisonDocument) -> CandidateFigures:
     summary = comparison["summary"]
     return {
         "earlier_window": comparison["earlier_window"],
@@ -122,10 +167,10 @@ def _compute(manifest_path: Path, commit: str) -> Candidate:
         matched = match_crawl(manifest)
         step = "compute_metrics"
         metrics = compute_metrics(matched.pages, matched.passages)
-    except (ValueError, OSError) as exc:
+    except Exception as exc:
         raise _StepError(step, str(exc)) from exc
 
-    comparison: dict[str, Any] = {
+    comparison: ComparisonDocument = {
         "schema_version": SCHEMA_VERSION,
         "sample_id": manifest.sample_id,
         "producing_commit": commit,
@@ -152,7 +197,7 @@ def _compute(manifest_path: Path, commit: str) -> Candidate:
 # Writing run folders.
 
 
-def _render(payload: dict[str, Any]) -> bytes:
+def _render(payload: ComparisonDocument | RunSummaryDocument) -> bytes:
     return (json.dumps(payload, indent=2) + "\n").encode("utf-8")
 
 
@@ -187,7 +232,7 @@ def _summary(
     commit: str,
     candidate: Candidate | None,
     error: _StepError | None,
-) -> dict[str, Any]:
+) -> RunSummaryDocument:
     comparison = None if candidate is None else candidate.comparison
     return {
         "schema_version": SCHEMA_VERSION,
@@ -252,11 +297,11 @@ _PAGE_KEYS = frozenset({"url", "status", "new_words", "earlier_capture_url", "la
 _ATTRIBUTION_KEYS = frozenset({"license", "license_url", "authors", "source_url", "modifications"})
 
 
-def _is_count(value: object) -> bool:
+def _is_count(value: object) -> TypeGuard[int]:
     return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
 
-def _validate_comparison(data: object, source: Path) -> dict[str, Any]:
+def _validate_comparison(data: object, source: Path) -> ComparisonDocument:
     def bad(why: str) -> ValueError:
         return ValueError(f"Invalid comparison at {source}: {why}")
 
@@ -273,9 +318,17 @@ def _validate_comparison(data: object, source: Path) -> dict[str, Any]:
     checksum = data["manifest_sha256"]
     if not isinstance(checksum, str) or not _SHA256_RE.fullmatch(checksum):
         raise bad("manifest_sha256 must be a 64-character SHA-256 hex digest")
-    for key in ("sample_id", "earlier_window", "later_window"):
-        if not isinstance(data[key], str):
+    sample_id = data["sample_id"]
+    earlier_window = data["earlier_window"]
+    later_window = data["later_window"]
+    for key, value in (
+        ("sample_id", sample_id),
+        ("earlier_window", earlier_window),
+        ("later_window", later_window),
+    ):
+        if not isinstance(value, str):
             raise bad(f"{key} must be a string")
+    assert isinstance(sample_id, str) and isinstance(earlier_window, str) and isinstance(later_window, str)
     archive_host = data["archive_host"]
     if archive_host is not None and (not isinstance(archive_host, str) or not archive_host.strip()):
         raise bad("archive_host must be a non-empty string or null")
@@ -284,54 +337,101 @@ def _validate_comparison(data: object, source: Path) -> dict[str, Any]:
         raise bad("summary must be an object and pages a list")
     if set(summary) != _SUMMARY_KEYS:
         raise bad(f"summary keys must be exactly {sorted(_SUMMARY_KEYS)}")
-    attribution = data["attribution"]
-    if attribution is not None and (
-        not isinstance(attribution, dict)
-        or set(attribution) != _ATTRIBUTION_KEYS
-        or not all(isinstance(value, str) for value in attribution.values())
-    ):
-        raise bad("attribution must be null or an object of the attribution strings")
+    raw_attribution = data["attribution"]
+    validated_attribution: dict[str, str] | None = None
+    if raw_attribution is not None:
+        if not isinstance(raw_attribution, dict) or set(raw_attribution) != _ATTRIBUTION_KEYS:
+            raise bad("attribution must be null or an object of the attribution strings")
+        validated_attribution = {}
+        for attr_key in _ATTRIBUTION_KEYS:
+            attr_value = raw_attribution[attr_key]
+            if not isinstance(attr_value, str):
+                raise bad("attribution must be null or an object of the attribution strings")
+            validated_attribution[attr_key] = attr_value
+
     counts = {"compared": 0, "comparison_incomplete": 0}
     urls: set[str] = set()
     page_words = 0
     largest_page = 0
+    validated_pages: list[PageMetricDict] = []
     for page in pages:
         if not isinstance(page, dict) or set(page) != _PAGE_KEYS:
             raise bad(f"each page must be an object with exactly {sorted(_PAGE_KEYS)}")
-        url, status = page["url"], page["status"]
+        url, raw_status = page["url"], page["status"]
         if not isinstance(url, str) or not url or url in urls:
             raise bad("each page needs its own non-empty url string")
         urls.add(url)
-        if not isinstance(status, str) or status not in counts:
+        if raw_status == "compared":
+            page_status: PageStatus = "compared"
+        elif raw_status == "comparison_incomplete":
+            page_status = "comparison_incomplete"
+        else:
             raise bad(f"page {url} needs a known status")
+
+        links: dict[str, str | None] = {}
         for key in ("earlier_capture_url", "later_capture_url"):
             link = page[key]
             if link is None:
+                links[key] = None
                 continue
             if not isinstance(link, str) or (
                 archive_host is not None and not is_allowed_archive_url(link, archive_host)
             ):
                 raise bad(f"page {url} has a disallowed {key}")
-        words = page["new_words"]
-        consistent = _is_count(words) if status == "compared" else words is None
-        if not consistent:
-            raise bad(f"page {url} has an inconsistent new_words")
-        if status == "compared":
-            page_words += words
-            largest_page = max(largest_page, words)
-        counts[status] += 1
-    expected = {"compared_pages": counts["compared"], "excluded_pages": counts["comparison_incomplete"]}
-    for key, value in expected.items():
-        if not _is_count(summary[key]) or summary[key] != value:
-            raise bad("summary page counts do not match pages")
+            links[key] = link
+
+        raw_words = page["new_words"]
+        if page_status == "compared":
+            if not _is_count(raw_words):
+                raise bad(f"page {url} has an inconsistent new_words")
+            new_words: int | None = raw_words
+            page_words += raw_words
+            largest_page = max(largest_page, raw_words)
+        else:
+            if raw_words is not None:
+                raise bad(f"page {url} has an inconsistent new_words")
+            new_words = None
+        counts[page_status] += 1
+        validated_pages.append(
+            {
+                "url": url,
+                "status": page_status,
+                "new_words": new_words,
+                "earlier_capture_url": links["earlier_capture_url"],
+                "later_capture_url": links["later_capture_url"],
+            }
+        )
+
+    compared_count = summary["compared_pages"]
+    excluded_count = summary["excluded_pages"]
+    if not _is_count(compared_count) or compared_count != counts["compared"]:
+        raise bad("summary page counts do not match pages")
+    if not _is_count(excluded_count) or excluded_count != counts["comparison_incomplete"]:
+        raise bad("summary page counts do not match pages")
     total = summary["distinct_new_words"]
     if not _is_count(total) or not largest_page <= total <= page_words:
         raise bad("distinct_new_words must lie between the largest page count and the page totals")
-    return data
+
+    return {
+        "schema_version": schema,
+        "sample_id": sample_id,
+        "producing_commit": commit,
+        "manifest_sha256": checksum,
+        "earlier_window": earlier_window,
+        "later_window": later_window,
+        "archive_host": archive_host,
+        "attribution": validated_attribution,
+        "summary": {
+            "compared_pages": compared_count,
+            "excluded_pages": excluded_count,
+            "distinct_new_words": total,
+        },
+        "pages": validated_pages,
+    }
 
 
-def _reject_duplicate_members(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    result: dict[str, Any] = {}
+def _reject_duplicate_members(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
     for key, value in pairs:
         if key in result:
             raise ValueError(f"duplicate member {key!r}")
@@ -339,25 +439,25 @@ def _reject_duplicate_members(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
-def _read_comparison(path: Path) -> tuple[bytes, dict[str, Any]]:
+def _read_comparison(path: Path) -> tuple[bytes, ComparisonDocument]:
     raw = path.read_bytes()
     try:
-        data = json.loads(raw.decode("utf-8"), object_pairs_hook=_reject_duplicate_members)
+        data: object = json.loads(raw.decode("utf-8"), object_pairs_hook=_reject_duplicate_members)
     except ValueError as exc:
         raise ValueError(f"Invalid comparison at {path}: {exc}") from exc
     return raw, _validate_comparison(data, path)
 
 
-def _preview(candidate: dict[str, Any], current: dict[str, Any] | None, target: Path) -> str:
-    rows = [("commit", lambda c: c["producing_commit"][:12])] + [
-        (label, lambda c, key=key: str(_figures(c)[key]))
-        for label, key in (
-            ("earlier window", "earlier_window"),
-            ("later window", "later_window"),
-            ("pages compared", "compared_pages"),
-            ("pages excluded", "excluded_pages"),
-            ("distinct new words", "distinct_new_words"),
-        )
+def _preview(
+    candidate: ComparisonDocument, current: ComparisonDocument | None, target: Path
+) -> str:
+    rows: list[tuple[str, Callable[[ComparisonDocument], str]]] = [
+        ("commit", lambda c: c["producing_commit"][:12]),
+        ("earlier window", lambda c: c["earlier_window"]),
+        ("later window", lambda c: c["later_window"]),
+        ("pages compared", lambda c: str(c["summary"]["compared_pages"])),
+        ("pages excluded", lambda c: str(c["summary"]["excluded_pages"])),
+        ("distinct new words", lambda c: str(c["summary"]["distinct_new_words"])),
     ]
     lines = [f"Promote to {target}"]
     if current is None:
@@ -396,7 +496,7 @@ def promote(run_dir: Path, publish_dir: Path, *, confirm: bool) -> Promotion:
     candidate_bytes, candidate = _read_comparison(source)
 
     target = publish_dir / COMPARISON_FILE
-    current: dict[str, Any] | None = None
+    current: ComparisonDocument | None = None
     if target.exists():
         try:
             _, current = _read_comparison(target)

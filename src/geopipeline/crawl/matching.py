@@ -293,20 +293,17 @@ def match_crawl(manifest: SampleManifest) -> MatchResult:
 
     for entry in manifest.later:
         earlier_entry = earlier_by_url.get(entry.page_url)
-        if earlier_entry is not None and earlier_entry.load_error is not None:
+        failed_entry = (
+            earlier_entry
+            if earlier_entry is not None and earlier_entry.load_error is not None
+            else entry
+        )
+        if failed_entry.load_error is not None:
             failed_pages[entry.page_url] = ExcludedPageDiagnostic(
                 url=entry.page_url,
-                captured_at=earlier_entry.captured_at,
-                failed_step=earlier_entry.load_error.failed_step,
-                reason=earlier_entry.load_error.reason,
-            )
-            continue
-        if entry.load_error is not None:
-            failed_pages[entry.page_url] = ExcludedPageDiagnostic(
-                url=entry.page_url,
-                captured_at=entry.captured_at,
-                failed_step=entry.load_error.failed_step,
-                reason=entry.load_error.reason,
+                captured_at=failed_entry.captured_at,
+                failed_step=failed_entry.load_error.failed_step,
+                reason=failed_entry.load_error.reason,
             )
             continue
         later_pages[entry.page_url] = extract_sentences(_verified_text(entry))

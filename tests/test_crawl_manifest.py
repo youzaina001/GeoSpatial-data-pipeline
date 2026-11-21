@@ -13,10 +13,19 @@ from geopipeline.crawl.manifest import CaptureEntry, SampleManifest, is_allowed_
 from geopipeline.crawl.matching import match_crawl
 
 
-def _write_manifest(base: Path, later: list[object], *, earlier: list[object] | None = None) -> Path:
+_OMIT = object()
+
+
+def _write_manifest(
+    base: Path,
+    later: list[object],
+    *,
+    earlier: list[object] | None = None,
+    attribution: object = _OMIT,
+) -> Path:
     base.mkdir(parents=True, exist_ok=True)
     path = base / "manifest.json"
-    data = {
+    data: dict[str, object] = {
         "sample_id": "x",
         "earlier_window": "e",
         "later_window": "l",
@@ -24,11 +33,14 @@ def _write_manifest(base: Path, later: list[object], *, earlier: list[object] | 
         "earlier": earlier or [],
         "later": later,
     }
+    if attribution is not _OMIT:
+        data["attribution"] = attribution
     path.write_text(json.dumps(data), encoding="utf-8")
     return path
 
 
 def _bundled_entry(base: Path, name: str, raw: bytes) -> dict[str, object]:
+    base.mkdir(parents=True, exist_ok=True)
     (base / name).write_bytes(raw)
     return {
         "page_url": f"https://a.invalid/{name}",
@@ -69,6 +81,24 @@ def test_non_object_load_error_and_attribution_are_rejected(tmp_path: Path) -> N
     }
     with pytest.raises(ValueError, match="load_error"):
         load_manifest(_write_manifest(tmp_path / "a", [entry]))
+
+    for index, bad_attribution in enumerate(("CC BY 4.0", ["CC BY 4.0"], 123)):
+        attr_dir = tmp_path / f"attr-{index}"
+        valid_entry = _bundled_entry(attr_dir, "ok.html", b"<article><p>Body.</p></article>")
+        with pytest.raises(ValueError, match="attribution"):
+            load_manifest(_write_manifest(attr_dir, [valid_entry], attribution=bad_attribution))
+    incomplete_dir = tmp_path / "attr-incomplete"
+    incomplete_entry = _bundled_entry(incomplete_dir, "ok.html", b"<article><p>Body.</p></article>")
+    with pytest.raises(ValueError, match="license"):
+        load_manifest(_write_manifest(incomplete_dir, [incomplete_entry], attribution={}))
+
+
+def test_manifest_rejects_lone_utf16_surrogates(tmp_path: Path) -> None:
+    entry = _bundled_entry(tmp_path, "ok.html", b"<article><p>Body.</p></article>")
+    entry["page_url"] = "https://a.invalid/\ud800"
+    path = _write_manifest(tmp_path, [entry])
+    with pytest.raises(ValueError, match="UTF-8"):
+        load_manifest(path)
 
 
 def test_extraction_uses_the_verified_bytes_not_a_later_reread(tmp_path: Path) -> None:

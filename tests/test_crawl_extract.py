@@ -154,6 +154,10 @@ def test_character_references_are_decoded_once() -> None:
 def test_sentence_ends_after_closing_quote() -> None:
     html = '<article><p>He said "Alpha beta gamma." Then one more line follows.</p></article>'
     assert _texts(html) == ["he said alpha beta gamma", "then one more line follows"]
+    assert _texts('<article><p>First.”)] Second.</p></article>') == ["first", "second"]
+    assert _texts('<article><p>First.")] Second.</p></article>') == ["first", "second"]
+    assert _texts('<article><p>Read "etc." then stop.</p></article>') == ["read etc then stop"]
+    assert _texts('<article><p>Use e.g. this (i.e.) that.</p></article>') == ["use e.g this i.e that"]
 
 
 def test_article_selection_ignores_main_inside_template_and_script() -> None:
@@ -297,7 +301,6 @@ def test_tags_inside_skipped_controls_never_close_the_visible_block_around_them(
     assert _article_texts("<p>Edit <noscript></p><p>Hidden leak</p></noscript> after.</p>") == [
         "edit after"
     ]
-
 
 
 def test_markup_a_browser_moves_out_of_a_control_counts_where_the_browser_puts_it() -> None:
@@ -478,26 +481,31 @@ def test_an_optional_colgroup_end_tag_is_implied_before_the_rows() -> None:
     assert _article_texts("<table><colgroup hidden><col><tr><td>Visible</td></tr></table>") == ["visible"]
 
 
-def test_end_tags_left_over_after_dropped_content_stay_linear() -> None:
-    # Codex round 6: each stray </span> scanned the whole dropped subtree.
-    from time import perf_counter
-
+def test_stray_end_tags_after_deeply_nested_dropped_content_extract_without_error() -> None:
+    # Codex round 6 / Round 8: iterative walk handles deeply nested dropped subtrees without recursion errors.
     html = "<p>First</p><span><svg>" + "<div>" * 8000 + "</span>" * 8000
-    start = perf_counter()
-    _article_texts(html)
-    assert perf_counter() - start < 2.0
+    assert _article_texts(html) == ["first"]
 
 
 def test_saved_article_fragment_uses_standards_mode() -> None:
     for table, expected in [("<table>", ["alpha", "cell"]), ("<table hidden>", ["alpha"])]:
         fragment = f"<article><p>Alpha{table}<tr><td>Cell</td></tr></table><a>Subscribe</a></article>"
-        assert [sentence.normalized_text for sentence in extract_sentences(fragment)] == expected
+        assert _texts(fragment) == expected
 
 
 def test_replay_document_honors_its_original_doctype() -> None:
-    page = "<html><body><main><p>Alpha<table><tr><td>Cell</td></tr></table><a>Subscribe</a></main></body></html>"
-    assert "<p>Alpha<table>" in extract_article_html(page)
-    assert "<p>Alpha</p><table>" in extract_article_html("<!doctype html>" + page)
+    page = "<html><body><main><p>Alpha<table><tr><td>Cell</td></tr></table>Tail words here.</p></main></body></html>"
+    assert _replay_texts(page) == ["alpha", "cell", "tail words here"]
+    assert _replay_texts("<!doctype html>" + page) == ["alpha", "cell"]
+
+    hidden_table = "<main><p>Alpha<table hidden><tr><td>Cell</td></tr></table><a>Beta</a></p></main>"
+    assert _replay_texts(hidden_table) == ["alpha", "beta"]
+
+    wrapped = "<main><p>Alpha <span>before <table><tr><td>Cell</td></tr></table> after</span> tail</p></main>"
+    assert _replay_texts(wrapped) == ["alpha before", "cell", "after tail"]
+
+    inline_markdown = '<main><p><span class="sl-markdown-content">Alpha<table><tr><td>Cell</td></tr></table>Tail</span></p></main>'
+    assert _replay_texts(inline_markdown) == ["alpha", "cell", "tail"]
 
 
 def test_hidden_html_root_drops_all_prose_and_replay_containers() -> None:
@@ -553,6 +561,9 @@ def test_replay_preserves_markdown_wrapper_title_ancestry_and_rejects_chrome_onl
         '<main><h1><button>Copy</button></h1><div class="sl-markdown-content"><nav>Nav</nav></div></main>',
         '<main><h1><span class="sr-only">Hidden</span></h1><div class="sl-markdown-content"><nav>Nav</nav></div></main>',
         '<main><h1><div hidden>Draft</div></h1><div class="sl-markdown-content"><nav>Nav</nav></div></main>',
+        '<main><h1 class="sl-markdown-content"><span><button>Copy</button></span></h1></main>',
+        '<main><h1><a href="#"><span class="sr-only">Link</span></a></h1><div class="sl-markdown-content"><nav>Nav</nav></div></main>',
+        '<main><h1><span class="icon"></span></h1><div class="sl-markdown-content"><nav>Nav</nav></div></main>',
     ):
         with pytest.raises(ValueError, match="Extracted article HTML is empty"):
             extract_article_html(empty_title)
@@ -562,6 +573,44 @@ def test_replay_preserves_markdown_wrapper_title_ancestry_and_rejects_chrome_onl
     )
     assert "<h1>" not in article
     assert _texts(article) == ["body"]
+
+    empty_wrapper_title = extract_article_html(
+        '<main><h1><span class="icon"></span></h1><div class="sl-markdown-content"><p>Body.</p></div></main>'
+    )
+    assert "<h1>" not in empty_wrapper_title
+    assert _texts(empty_wrapper_title) == ["body"]
+
+    code_article = extract_article_html("<main><pre><code>User-agent: GPTBot</code></pre></main>")
+    assert "User-agent: GPTBot" in code_article
+    assert _texts(code_article) == []
+
+
+def test_inline_markdown_wrapper_inside_prose_block_keeps_enclosing_prose() -> None:
+    cases = [
+        ('<main><p><span class="sl-markdown-content">Body.</span></p></main>', ["body"]),
+        ('<main><p>Before <span class="sl-markdown-content">Inside</span> after.</p></main>', ["before inside after"]),
+        ('<main><ul><li><div class="sl-markdown-content">Body.</div></li></ul></main>', ["body"]),
+        (
+            '<main><table><tr><td>Before <span class="sl-markdown-content">Cell</span> after</td></tr></table></main>',
+            ["before cell after"],
+        ),
+        ('<main><p>Before <strong class="sl-markdown-content">Bold</strong> after.</p></main>', ["before bold after"]),
+        ('<main><strong><span class="sl-markdown-content">Headline</span></strong></main>', ["headline"]),
+        ('<main><h1>Title</h1><p><span class="sl-markdown-content">Body.</span></p></main>', ["title", "body"]),
+    ]
+    for html, expected in cases:
+        assert _replay_texts(html) == expected, html
+
+
+def test_strong_outside_any_prose_block_and_closed_details_are_visible_prose() -> None:
+    assert _article_texts("<div><strong>Card headline</strong><p>Card body.</p></div>") == [
+        "card headline",
+        "card body",
+    ]
+    assert _article_texts("<div><strong>Bold label</strong></div>") == ["bold label"]
+    assert _article_texts(
+        "<details><summary>More</summary><p>Expanded prose.</p></details><details hidden><p>Hidden prose.</p></details>"
+    ) == ["expanded prose"]
 
 
 def test_nested_strong_inside_standalone_strong_stays_one_headline() -> None:

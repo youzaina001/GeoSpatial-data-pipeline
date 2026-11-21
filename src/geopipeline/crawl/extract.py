@@ -63,7 +63,8 @@ BLOCK_BOUNDARY_TAGS = frozenset(
 PROSE_SKIP_TAGS = CHROME_TAGS | frozenset({"pre"})
 
 # Opening or closing any of these ends the current prose block, even when it is dropped:
-# the blocks above plus every other element that closes an open <p> in HTML.
+# the blocks above plus every other element that closes an open <p> in HTML (<plaintext> is
+# omitted because an empty <plaintext></plaintext> placeholder consumes trailing markup).
 _SPLIT_TAGS = BLOCK_BOUNDARY_TAGS | frozenset(
     {
         "address", "aside", "center", "details", "dialog", "dir", "fieldset", "footer",
@@ -76,9 +77,16 @@ _TABLE_PART_TAGS = frozenset(
     {"caption", "col", "colgroup", "thead", "tbody", "tfoot", "tr", "th", "td"}
 )
 
+# HTML "in p button scope" barriers used when hoisting quirks-mode <table> elements out of <p>.
+_P_SCOPE_BARRIERS = frozenset(
+    {
+        "applet", "button", "caption", "html", "marquee", "math", "object",
+        "svg", "table", "td", "th", "template",
+    }
+)
+
 SENTENCE_SPLIT_RE = re.compile(
-    r"(?:(?<=[.!?])|(?<=[.!?][\"'\u201d\u2019)\]]))"
-    r"(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\betc\.)\s+"
+    r"""[.!?](?<!\be\.g\.)(?<!\bi\.e\.)(?<!\betc\.)["'\u201d\u2019)\]}]*\s+"""
 )
 
 # Keeps contractions (don't), hyphenated words (AI-ready), and dotted/underscored identifiers (robots.txt).
@@ -116,7 +124,7 @@ def _is_skipped(node: LexborNode, tag: str, skip_tags: frozenset[str]) -> bool:
 
 def _children(node: LexborNode) -> list[LexborNode]:
     children = []
-    child = node.child
+    child = node.first_child
     while child is not None:
         children.append(child)
         child = child.next
@@ -156,14 +164,15 @@ def _walk(root: LexborNode, skip_tags: frozenset[str]) -> Iterator[tuple[str, Le
 def _prose_blocks(root: LexborNode) -> list[str]:
     """Collect visible prose blocks (ADR 0018).
 
-    Text counts only inside a prose block or a <strong> outside any prose block. Hidden
-    content, UI controls, chrome and <pre> code blocks are skipped, and a skipped block
-    still ends the text before it. A visible <br> is a space.
+    Text counts only inside a prose block or a <strong> outside any prose block (a <strong>
+    nested inside a standalone <strong> stays part of that headline). Hidden content, UI
+    controls, chrome and <pre> code blocks are skipped, and a skipped block still ends the
+    text before it. A visible <br> is a space.
     """
     blocks: list[str] = []
     current: list[str] = []
-    collecting = 0
-    opened: list[bool] = []
+    depth = 0
+    collecting_depths: list[int] = []
 
     def flush() -> None:
         text = "".join(current).strip()
@@ -173,24 +182,25 @@ def _prose_blocks(root: LexborNode) -> list[str]:
 
     for kind, _, value in _walk(root, PROSE_SKIP_TAGS):
         if kind == "text":
-            if collecting:
+            if collecting_depths:
                 current.append(value)
         elif kind == "skip":
             if value in _SPLIT_TAGS:
                 flush()
         elif kind == "start":
-            collects = value in PROSE_BLOCK_TAGS or (value == "strong" and not collecting)
-            opened.append(collects)
+            depth += 1
+            collects = value in PROSE_BLOCK_TAGS or (value == "strong" and not collecting_depths)
             if collects or value in _SPLIT_TAGS:
                 flush()
-            if value == "br" and collecting:
+            if value == "br" and collecting_depths:
                 current.append(" ")
             if collects:
-                collecting += 1
+                collecting_depths.append(depth)
         elif kind == "end":
-            collects = opened.pop()
+            collects = bool(collecting_depths and collecting_depths[-1] == depth)
             if collects:
-                collecting -= 1
+                collecting_depths.pop()
+            depth -= 1
             if collects or value in _SPLIT_TAGS:
                 flush()
     flush()
@@ -205,7 +215,8 @@ def _find_first(root: LexborNode, predicate: Callable[[LexborNode, str], bool]) 
     return None
 
 
-def _contains(ancestor: LexborNode, node: LexborNode) -> bool:
+def _is_or_contains(ancestor: LexborNode, node: LexborNode) -> bool:
+    """Return True when ``node`` is ``ancestor`` or a descendant of ``ancestor``."""
     current: LexborNode | None = node
     while current is not None:
         if current == ancestor:
@@ -214,19 +225,27 @@ def _contains(ancestor: LexborNode, node: LexborNode) -> bool:
     return False
 
 
-def _strip_chrome(root: LexborNode) -> int:
+def _enclosing_prose_block(node: LexborNode, container: LexborNode) -> LexborNode | None:
+    """Return the outermost prose-collecting ancestor of ``node`` inside ``container``, or None."""
+    outermost: LexborNode | None = None
+    current = node.parent
+    while current is not None and current != container:
+        if current.tag in PROSE_BLOCK_TAGS or current.tag == "strong":
+            outermost = current
+        current = current.parent
+    return outermost
+
+
+def _strip_chrome(root: LexborNode) -> bool:
     """Remove chrome (Wayback toolbars, nav, scripts, buttons, sr-only) and comments in place.
 
     A removed block leaves an empty element of the same tag without attributes, so the
     prose collector still splits the text around it as it does on the original page.
-    Returns how many elements were kept, not counting those empty placeholders.
+    Returns True when non-whitespace text remains inside ``root``.
     """
-    kept = 0
     removed: list[tuple[LexborNode, str]] = []
     for kind, node, tag in _walk(root, CHROME_TAGS):
-        if kind == "start" and node is not root:
-            kept += 1
-        elif kind in ("skip", "comment"):
+        if kind in ("skip", "comment"):
             removed.append((node, tag))
     for node, tag in removed:
         if tag in _SPLIT_TAGS:
@@ -235,7 +254,106 @@ def _strip_chrome(root: LexborNode) -> int:
                 del node.attrs[name]
         else:
             node.decompose()
-    return kept
+    return bool(root.text(deep=True).strip())
+
+
+def _p_ancestor_in_scope(table: LexborNode, boundary: LexborNode | None) -> LexborNode | None:
+    current = table.parent
+    while current is not None and current != boundary:
+        if current.tag == "p":
+            return current
+        if current.tag in _P_SCOPE_BARRIERS:
+            return None
+        current = current.parent
+    return None
+
+
+def _new_empty_element_after(anchor: LexborNode, source: LexborNode) -> LexborNode:
+    tag = source.tag or "span"
+    shell_body = LexborHTMLParser(f"<!doctype html><{tag}></{tag}>").body
+    if shell_body is None or shell_body.first_child is None:
+        shell_body = LexborHTMLParser("<!doctype html><span></span>").body
+        assert shell_body is not None and shell_body.first_child is not None
+    anchor.insert_after(shell_body.first_child)
+    tail = anchor.next
+    assert tail is not None
+    for name, value in source.attributes.items():
+        if name != "id":
+            tail.attrs[name] = "" if value is None else value
+    return tail
+
+
+def _split_quirks_tables(root: LexborNode) -> list[LexborNode]:
+    """Hoist quirks-mode ``<table>`` elements out of enclosing ``<p>`` elements.
+
+    In quirks mode a ``<table>`` does not close an open ``<p>``. Because ``extract_sentences``
+    parses saved article fragments in standards mode, leaving ``<table>`` inside ``<p>`` would
+    cause the standards-mode parser to implicitly close ``<p>`` at ``<table>`` and drop any
+    trailing prose after it.
+    """
+    boundary = root.parent
+    top_nodes: list[LexborNode] = [root]
+    tables: list[LexborNode] = []
+    stack: list[LexborNode] = [root]
+    while stack:
+        node = stack.pop()
+        if node.is_element_node:
+            if node.tag == "table":
+                tables.append(node)
+            child = node.last_child
+            while child is not None:
+                stack.append(child)
+                child = child.prev
+
+    for table in tables:
+        p_ancestor = _p_ancestor_in_scope(table, boundary)
+        if p_ancestor is None:
+            continue
+        while True:
+            parent = table.parent
+            if parent is None:
+                break
+            trailing: list[LexborNode] = []
+            sibling = table.next
+            while sibling is not None:
+                trailing.append(sibling)
+                sibling = sibling.next
+            parent.insert_after(table, move=True)
+            tail = _new_empty_element_after(table, parent) if trailing else None
+            if tail is not None:
+                for node in trailing:
+                    tail.insert_child(node, move=True)
+            if parent in top_nodes:
+                idx = top_nodes.index(parent)
+                inserted = [table] + ([tail] if tail is not None else [])
+                top_nodes[idx + 1 : idx + 1] = inserted
+            reached_p = parent == p_ancestor
+            if parent.first_child is None:
+                if parent in top_nodes:
+                    top_nodes.remove(parent)
+                parent.decompose()
+            if reached_p:
+                break
+    return top_nodes
+
+
+def _serialize_element(node: LexborNode) -> str | None:
+    if not _strip_chrome(node):
+        return None
+    nodes = _split_quirks_tables(node)
+    rendered = "\n".join(fragment for item in nodes if (fragment := (item.html or "").strip()))
+    if not rendered:
+        return None
+    if len(nodes) == 1 and nodes[0].tag in _TABLE_PART_TAGS:
+        return f"<table>{rendered}</table>"
+    return rendered
+
+
+def _serialize_contents(container: LexborNode) -> str | None:
+    if not _strip_chrome(container):
+        return None
+    _split_quirks_tables(container)
+    return (container.inner_html or "").strip() or None
 
 
 def extract_article_html(full_replay_html: str) -> str:
@@ -260,24 +378,16 @@ def extract_article_html(full_replay_html: str) -> str:
         lambda node, _: "sl-markdown-content" in (node.attributes.get("class") or "").split(),
     )
     if markdown is not None:
+        body = _enclosing_prose_block(markdown, container) or markdown
         title = _find_first(container, lambda _, tag: tag == "h1")
-        if title is not None and _contains(title, markdown):
-            body = title
-        else:
-            if title is not None and not _contains(markdown, title):
-                if _strip_chrome(title) or title.text(deep=True).strip():
-                    parts.append((title.html or "").strip())
-            body = markdown
-        emit_outer = True
+        if title is not None and not _is_or_contains(body, title):
+            if rendered_title := _serialize_element(title):
+                parts.append(rendered_title)
+        if rendered_body := _serialize_element(body):
+            parts.append(rendered_body)
     else:
-        body = container
-        emit_outer = False
-    if _strip_chrome(body) or body.text(deep=True).strip():
-        fragment = ((body.html if emit_outer else body.inner_html) or "").strip()
-        if emit_outer and body.tag in _TABLE_PART_TAGS:
-            fragment = f"<table>{fragment}</table>"
-        if fragment:
-            parts.append(fragment)
+        if rendered_container := _serialize_contents(container):
+            parts.append(rendered_container)
     if not parts:
         raise ValueError("Extracted article HTML is empty")
     content = "\n".join(parts)

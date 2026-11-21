@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
 from urllib.parse import urlsplit
 
 
@@ -99,8 +99,10 @@ def _parse_capture_entry(
     page_url = _require_str(raw, "page_url")
     captured_at = _validate_utc_iso8601(_require_str(raw, "captured_at"), page_url=page_url)
     replay_url_val = raw.get("replay_url")
-    if replay_url_val is not None and not isinstance(replay_url_val, str):
-        raise ValueError(f"replay_url must be a string or null for {page_url}")
+    if replay_url_val is not None:
+        if not isinstance(replay_url_val, str):
+            raise ValueError(f"replay_url must be a string or null for {page_url}")
+        _validate_utf8_text(replay_url_val, "replay_url")
     if archive_host is not None and replay_url_val is not None:
         if not is_allowed_archive_url(replay_url_val, archive_host):
             raise ValueError(
@@ -158,7 +160,15 @@ def _parse_capture_entry(
     )
 
 
-def _parse_attribution(raw: Any) -> Attribution | None:
+def _validate_utf8_text(value: str, label: str) -> str:
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise ValueError(f"Manifest field '{label}' must be valid UTF-8") from exc
+    return value
+
+
+def _parse_attribution(raw: object) -> Attribution | None:
     if raw is None:
         return None
     if not isinstance(raw, dict):
@@ -172,11 +182,11 @@ def _parse_attribution(raw: Any) -> Attribution | None:
     )
 
 
-def _require_str(obj: dict[str, Any], key: str) -> str:
+def _require_str(obj: Mapping[str, object], key: str) -> str:
     val = obj.get(key)
     if not isinstance(val, str) or not val.strip():
         raise ValueError(f"Manifest field '{key}' must be a non-empty string")
-    return val
+    return _validate_utf8_text(val, key)
 
 
 def load_manifest(manifest_path: Path) -> tuple[SampleManifest, str]:
@@ -193,8 +203,10 @@ def load_manifest(manifest_path: Path) -> tuple[SampleManifest, str]:
     earlier_window = _require_str(data, "earlier_window")
     later_window = _require_str(data, "later_window")
     archive_host = data.get("archive_host")
-    if archive_host is not None and (not isinstance(archive_host, str) or not archive_host.strip()):
-        raise ValueError("archive_host must be a non-empty string or null")
+    if archive_host is not None:
+        if not isinstance(archive_host, str) or not archive_host.strip():
+            raise ValueError("archive_host must be a non-empty string or null")
+        _validate_utf8_text(archive_host, "archive_host")
 
     raw_earlier = data.get("earlier")
     raw_later = data.get("later")
