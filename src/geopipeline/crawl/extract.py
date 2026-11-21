@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import html
 import re
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -27,20 +26,21 @@ VOID_TAGS = frozenset(
     }
 )
 
-CHROME_TAGS = frozenset(
-    {
-        "script",
-        "style",
-        "template",
-        "noscript",
-        "svg",
-        "nav",
-        "header",
-        "footer",
-        "aside",
-        "button",
-        "form",
-    }
+# Content a reader never sees: never prose and never a place to look for the article.
+HIDDEN_TAGS = frozenset(
+    {"script", "style", "template", "noscript", "iframe", "textarea"}
+)
+
+# UI controls and site chrome around or inside the article.
+UI_TAGS = frozenset(
+    {"button", "label", "select", "option", "input", "form", "nav", "svg", "header", "footer", "aside"}
+)
+
+CHROME_TAGS = HIDDEN_TAGS | UI_TAGS
+
+# ADR 0018: the only elements whose text counts as prose (plus a standalone <strong>).
+PROSE_BLOCK_TAGS = frozenset(
+    {"h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "blockquote", "th", "td", "figcaption"}
 )
 
 WAYBACK_CHROME_IDS = frozenset({"wm-ipp-base", "wm-ipp", "donato"})
@@ -80,7 +80,8 @@ BLOCK_BOUNDARY_TAGS = frozenset(
 PROSE_SKIP_TAGS = CHROME_TAGS | frozenset({"pre"})
 
 SENTENCE_SPLIT_RE = re.compile(
-    r"(?<=[.!?])(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\betc\.)\s+"
+    r"(?:(?<=[.!?])|(?<=[.!?][\"'\u201d\u2019)\]]))"
+    r"(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\betc\.)\s+"
 )
 
 # Keeps contractions (don't), hyphenated words (AI-ready), and dotted/underscored identifiers (robots.txt).
@@ -107,13 +108,20 @@ def _get_attr(attrs: list[tuple[str, str | None]], name: str) -> str | None:
     return None
 
 
+def _is_hidden(attrs: list[tuple[str, str | None]]) -> bool:
+    if any(key == "hidden" for key, _ in attrs):
+        return True
+    aria_hidden = _get_attr(attrs, "aria-hidden")
+    return aria_hidden is not None and aria_hidden.strip().lower() == "true"
+
+
 def _is_skipped_element(
     tag: str,
     attrs: list[tuple[str, str | None]],
     *,
     skip_tags: frozenset[str],
 ) -> bool:
-    if tag in skip_tags:
+    if tag in skip_tags or _is_hidden(attrs):
         return True
     if _get_attr(attrs, "id") in WAYBACK_CHROME_IDS:
         return True
@@ -135,6 +143,7 @@ class _SubtreeExtractor(HTMLParser):
         self._tag_name = tag_name
         self._class_name = class_name
         self._stack: list[str] = []
+        self._ignore_stack: list[str] = []
         self._done = False
         self._buf: list[str] = []
         self.outer_html: str | None = None
@@ -152,6 +161,13 @@ class _SubtreeExtractor(HTMLParser):
             return
         raw = self.get_starttag_text() or f"<{tag}>"
         if not self._stack:
+            if self._ignore_stack:
+                if tag not in VOID_TAGS:
+                    self._ignore_stack.append(tag)
+                return
+            if tag in HIDDEN_TAGS:
+                self._ignore_stack.append(tag)
+                return
             if self._matches(tag, attrs):
                 self._stack.append(tag)
                 self._buf = [raw]
@@ -166,7 +182,11 @@ class _SubtreeExtractor(HTMLParser):
         self._buf.append(self.get_starttag_text() or f"<{tag}/>")
 
     def handle_endtag(self, tag: str) -> None:
-        if self._done or not self._stack or tag in VOID_TAGS:
+        if self._done or tag in VOID_TAGS:
+            return
+        if not self._stack:
+            if self._ignore_stack:
+                _pop_matching(self._ignore_stack, tag)
             return
         self._buf.append(f"</{tag}>")
         _pop_matching(self._stack, tag)
@@ -268,7 +288,7 @@ def extract_article_html(full_replay_html: str) -> str:
     if markdown_inner is not None:
         h1_outer, _ = _extract_first(main_inner, tag_name="h1")
         parts: list[str] = []
-        if h1_outer is not None:
+        if h1_outer is not None and h1_outer not in markdown_inner:
             cleaned_h1 = _strip_chrome(h1_outer)
             if cleaned_h1:
                 parts.append(cleaned_h1)
@@ -285,14 +305,23 @@ def extract_article_html(full_replay_html: str) -> str:
 
 
 class _ProseBlockCollector(HTMLParser):
-    """Collect visible prose blocks while dropping <pre> code blocks and chrome tags."""
+    """Collect visible prose blocks (ADR 0018).
+
+    Text counts only inside a prose block or a <strong> outside any prose block.
+    Hidden content, UI controls, chrome and <pre> code blocks are skipped. <br> is a
+    space. convert_charrefs=True decodes character references exactly once.
+    """
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self._skip_stack: list[str] = []
-        self._in_paragraph = 0
+        self._block_depth = 0
+        self._headline_depth = 0
         self._current: list[str] = []
         self.blocks: list[str] = []
+
+    def _collecting(self) -> bool:
+        return self._block_depth > 0 or self._headline_depth > 0
 
     def _flush(self) -> None:
         if self._current:
@@ -301,37 +330,36 @@ class _ProseBlockCollector(HTMLParser):
                 self.blocks.append(text)
             self._current.clear()
 
+    def _open(self, tag: str) -> None:
+        if tag == "br":
+            if self._collecting():
+                self._current.append(" ")
+            return
+        if tag in PROSE_BLOCK_TAGS:
+            self._flush()
+            self._block_depth += 1
+        elif tag == "strong" and self._block_depth == 0:
+            self._flush()
+            self._headline_depth += 1
+        elif tag in BLOCK_BOUNDARY_TAGS:
+            self._flush()
+
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if self._skip_stack:
             if tag not in VOID_TAGS:
                 self._skip_stack.append(tag)
             return
         if _is_skipped_element(tag, attrs, skip_tags=PROSE_SKIP_TAGS):
-            self._flush()
             if tag not in VOID_TAGS:
                 self._skip_stack.append(tag)
             return
-        if tag == "br":
-            if self._in_paragraph > 0:
-                self._current.append(" ")
-            else:
-                self._flush()
-            return
-        if tag in BLOCK_BOUNDARY_TAGS:
-            self._flush()
-        if tag == "p":
-            self._in_paragraph += 1
+        self._open(tag)
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if self._skip_stack or _is_skipped_element(tag, attrs, skip_tags=PROSE_SKIP_TAGS):
             return
         if tag == "br":
-            if self._in_paragraph > 0:
-                self._current.append(" ")
-            else:
-                self._flush()
-        elif tag in BLOCK_BOUNDARY_TAGS:
-            self._flush()
+            self._open(tag)
 
     def handle_endtag(self, tag: str) -> None:
         if tag in VOID_TAGS:
@@ -339,13 +367,17 @@ class _ProseBlockCollector(HTMLParser):
         if self._skip_stack:
             _pop_matching(self._skip_stack, tag)
             return
-        if tag == "p" and self._in_paragraph > 0:
-            self._in_paragraph -= 1
-        if tag in BLOCK_BOUNDARY_TAGS:
+        if tag in PROSE_BLOCK_TAGS and self._block_depth > 0:
+            self._flush()
+            self._block_depth -= 1
+        elif tag == "strong" and self._headline_depth > 0 and self._block_depth == 0:
+            self._flush()
+            self._headline_depth -= 1
+        elif tag in BLOCK_BOUNDARY_TAGS:
             self._flush()
 
     def handle_data(self, data: str) -> None:
-        if not self._skip_stack:
+        if not self._skip_stack and self._collecting():
             self._current.append(data)
 
     def finalize(self) -> list[str]:
@@ -354,18 +386,15 @@ class _ProseBlockCollector(HTMLParser):
 
 
 def _normalize_text(raw: str) -> str:
-    unescaped = html.unescape(raw)
-    normalized_quotes = unescaped.replace("\u2019", "'").replace("\u2018", "'")
+    normalized_quotes = raw.replace("\u2019", "'").replace("\u2018", "'")
     return re.sub(r"\s+", " ", normalized_quotes).strip()
 
 
 def extract_sentences(article_html: str) -> list[Sentence]:
-    """Extract normalized prose sentences from article HTML.
+    """Extract normalized sentences from the visible prose blocks of article HTML (ADR 0018).
 
-    Drops <pre> code blocks, keeps inline <code> tokens inside prose, preserves
-    bare inline headlines (such as changelog titles between <br> tags) and
-    <figcaption> captions, folds case to lowercase, and preserves contractions,
-    hyphenated words, and dotted technical tokens.
+    Folds case to lowercase and keeps contractions, hyphenated words, and dotted
+    technical tokens as single words.
     """
     collector = _ProseBlockCollector()
     collector.feed(article_html)

@@ -100,3 +100,72 @@ def test_bare_changelog_titles_and_figcaptions_are_extracted_as_prose() -> None:
         "ai crawl control supports custom modifications",
         "traffic overview chart caption",
     ]
+
+
+def _texts(html: str) -> list[str]:
+    return [s.normalized_text for s in extract_sentences(html)]
+
+
+def test_hidden_content_is_not_prose() -> None:
+    html = """<article>
+      <p>Read <span hidden>draft</span> this <span aria-hidden="true">icon</span> text.</p>
+      <template><p>Template words.</p></template>
+      <script>var x = "script words";</script><style>p { color: red; }</style>
+      <noscript><p>Noscript words.</p></noscript>
+      <p>Frame <iframe src="https://example.invalid/">iframe words</iframe> here.</p>
+      <p>Box <textarea>textarea words</textarea> here.</p>
+      <div hidden><p>Hidden block words.</p></div>
+    </article>"""
+    assert _texts(html) == ["read this text", "frame here", "box here"]
+
+
+def test_ui_controls_and_text_outside_prose_blocks_are_not_prose() -> None:
+    html = """<article>
+      <a class="inline-flex" href="/rss.xml">Subscribe to RSS</a>
+      <div>Loose div text.</div>
+      <p>Kept <button>Copy</button> sentence <label>Label</label> here.</p>
+      <form><p>Form words.</p></form>
+      <select><option>Option words</option></select><input value="Input words">
+    </article>"""
+    assert _texts(html) == ["kept sentence here"]
+
+
+def test_standalone_strong_in_article_body_is_a_headline_but_inline_strong_is_not_split() -> None:
+    html = """<article>
+      <strong>Analytics enhancements</strong> <br>
+      <p>Use the <strong>Patterns</strong> tab.</p>
+    </article>"""
+    assert _texts(html) == ["analytics enhancements", "use the patterns tab"]
+
+
+def test_br_inside_any_block_is_a_space_not_a_sentence_break() -> None:
+    for tag in ("li", "h2", "td", "blockquote"):
+        html = f"<article><table><tr><{tag}>The default timeout value<br>is ten seconds.</{tag}></tr></table></article>"
+        assert _texts(html) == ["the default timeout value is ten seconds"], tag
+
+
+def test_character_references_are_decoded_once() -> None:
+    sentences = extract_sentences("<article><p>Write &amp;nbsp; for a space.</p></article>")
+    assert sentences[0].tokens == ("write", "nbsp", "for", "a", "space")
+
+
+def test_sentence_ends_after_closing_quote() -> None:
+    html = '<article><p>He said "Alpha beta gamma." Then one more line follows.</p></article>'
+    assert _texts(html) == ["he said alpha beta gamma", "then one more line follows"]
+
+
+def test_article_selection_ignores_main_inside_template_and_script() -> None:
+    replay = (
+        "<template><main><p>Fake</p></main></template>"
+        "<script>var s = '<main><p>Script</p></main>';</script>"
+        "<main><p>Real</p></main>"
+    )
+    article = extract_article_html(replay)
+    assert "Real" in article
+    assert "Fake" not in article
+    assert "Script" not in article
+
+
+def test_h1_inside_markdown_content_is_not_duplicated() -> None:
+    replay = '<main><div class="sl-markdown-content"><h1>Title</h1><p>Body.</p></div></main>'
+    assert extract_article_html(replay).count("Title") == 1
