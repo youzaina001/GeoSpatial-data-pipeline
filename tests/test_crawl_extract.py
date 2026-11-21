@@ -169,3 +169,13 @@ def test_article_selection_ignores_main_inside_template_and_script() -> None:
 def test_h1_inside_markdown_content_is_not_duplicated() -> None:
     replay = '<main><div class="sl-markdown-content"><h1>Title</h1><p>Body.</p></div></main>'
     assert extract_article_html(replay).count("Title") == 1
+
+
+def test_article_selection_skips_hidden_main_and_main_inside_hidden_ancestors() -> None:
+    replay = (
+        "<main hidden><p>Hidden draft.</p></main>"
+        '<div aria-hidden="true"><main><p>Ancestor hidden.</p></main></div>'
+        "<main><p>Visible article.</p></main>"
+    )
+    sentences = [s.normalized_text for s in extract_sentences(extract_article_html(replay))]
+    assert sentences == ["visible article"]
