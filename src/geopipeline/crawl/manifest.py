@@ -26,6 +26,7 @@ class CaptureEntry:
     file: str | None = None
     sha256: str | None = None
     load_error: LoadError | None = None
+    text: str | None = None
 
 
 @dataclass(frozen=True)
@@ -58,17 +59,21 @@ class SampleManifest:
 
 
 def is_allowed_archive_url(url: str, archive_host: str) -> bool:
-    """Return True only for absolute HTTPS URLs matching archive_host exactly with no userinfo."""
+    """Return True only for absolute HTTPS URLs whose whole authority is archive_host.
+
+    Userinfo, any explicit port (valid or not) and unparsable authorities are disallowed.
+    """
     if not url or any(ch.isspace() for ch in url):
         return False
-    parsed = urlsplit(url)
-    if parsed.scheme != "https":
+    try:
+        parsed = urlsplit(url)
+        hostname = parsed.hostname
+    except ValueError:
         return False
-    if parsed.username is not None or parsed.password is not None:
+    if parsed.scheme != "https" or hostname is None:
         return False
-    if parsed.hostname is None:
-        return False
-    return parsed.hostname.lower() == archive_host.lower()
+    expected = archive_host.lower()
+    return hostname.lower() == expected and parsed.netloc.lower() == expected
 
 
 def _validate_utc_iso8601(value: str, *, page_url: str) -> str:
@@ -84,11 +89,13 @@ def _validate_utc_iso8601(value: str, *, page_url: str) -> str:
 
 
 def _parse_capture_entry(
-    raw: dict[str, Any],
+    raw: object,
     *,
     manifest_dir: Path,
     archive_host: str | None,
 ) -> CaptureEntry:
+    if not isinstance(raw, dict):
+        raise ValueError(f"Each capture entry must be a JSON object, got {type(raw).__name__}")
     page_url = _require_str(raw, "page_url")
     captured_at = _validate_utc_iso8601(_require_str(raw, "captured_at"), page_url=page_url)
     replay_url_val = raw.get("replay_url")
@@ -130,11 +137,16 @@ def _parse_capture_entry(
         raise ValueError(f"Fixture file escapes manifest directory: {rel_file}")
     if not target_path.is_file():
         raise FileNotFoundError(f"Bundled fixture file missing: {target_path}")
-    actual_sha = hashlib.sha256(target_path.read_bytes()).hexdigest()
+    verified_bytes = target_path.read_bytes()
+    actual_sha = hashlib.sha256(verified_bytes).hexdigest()
     if actual_sha != expected_sha:
         raise ValueError(
             f"SHA-256 mismatch for {rel_file}: expected {expected_sha}, got {actual_sha}"
         )
+    try:
+        text = verified_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"Bundled fixture {rel_file} is not valid UTF-8") from exc
 
     return CaptureEntry(
         page_url=page_url,
@@ -142,6 +154,7 @@ def _parse_capture_entry(
         captured_at=captured_at,
         file=rel_file,
         sha256=expected_sha,
+        text=text,
     )
 
 

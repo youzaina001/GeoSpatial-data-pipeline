@@ -76,7 +76,7 @@ def run_comparison(
 ) -> dict[str, Any]:
     """Run one crawl comparison end-to-end and atomically publish comparison.json."""
     manifest, manifest_sha256 = load_manifest(manifest_path)
-    matched = match_crawl(manifest, manifest_path.parent)
+    matched = match_crawl(manifest)
     metrics = compute_metrics(matched.pages, matched.passages)
     commit = producing_commit or _resolve_producing_commit(manifest_path.parent)
 

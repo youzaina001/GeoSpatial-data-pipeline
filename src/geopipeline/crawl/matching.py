@@ -6,11 +6,10 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from pathlib import Path
 from typing import Literal
 
 from geopipeline.crawl.extract import Sentence, extract_sentences
-from geopipeline.crawl.manifest import SampleManifest
+from geopipeline.crawl.manifest import CaptureEntry, SampleManifest
 
 SIMILARITY_THRESHOLD = 0.5
 PageStatus = Literal["compared", "comparison_incomplete"]
@@ -166,8 +165,16 @@ def match_pages(
     )
 
 
-def match_crawl(manifest: SampleManifest, manifest_dir: Path) -> MatchResult:
-    """Read HTML fixtures declared in manifest and run corpus-wide sentence matching."""
+def _verified_text(entry: CaptureEntry) -> str:
+    if entry.text is None:
+        raise ValueError(
+            f"Capture entry for {entry.page_url} has neither verified content nor a load_error"
+        )
+    return entry.text
+
+
+def match_crawl(manifest: SampleManifest) -> MatchResult:
+    """Run corpus-wide matching on the verified fixture text held by the manifest."""
     earlier_by_url = {entry.page_url: entry for entry in manifest.earlier}
     earlier_urls: dict[str, str | None] = {
         entry.page_url: entry.replay_url for entry in manifest.earlier
@@ -178,10 +185,9 @@ def match_crawl(manifest: SampleManifest, manifest_dir: Path) -> MatchResult:
 
     earlier_pages: dict[str, list[Sentence]] = {}
     for entry in manifest.earlier:
-        if entry.load_error is not None or entry.file is None:
+        if entry.load_error is not None:
             continue
-        html_text = (manifest_dir / entry.file).read_text(encoding="utf-8")
-        earlier_pages[entry.page_url] = extract_sentences(html_text)
+        earlier_pages[entry.page_url] = extract_sentences(_verified_text(entry))
 
     later_pages: dict[str, list[Sentence]] = {}
     failed_pages: dict[str, ExcludedPageDiagnostic] = {}
@@ -196,8 +202,7 @@ def match_crawl(manifest: SampleManifest, manifest_dir: Path) -> MatchResult:
                 reason=earlier_entry.load_error.reason,
             )
             continue
-        if entry.load_error is not None or entry.file is None:
-            assert entry.load_error is not None
+        if entry.load_error is not None:
             failed_pages[entry.page_url] = ExcludedPageDiagnostic(
                 url=entry.page_url,
                 captured_at=entry.captured_at,
@@ -205,8 +210,7 @@ def match_crawl(manifest: SampleManifest, manifest_dir: Path) -> MatchResult:
                 reason=entry.load_error.reason,
             )
             continue
-        html_text = (manifest_dir / entry.file).read_text(encoding="utf-8")
-        later_pages[entry.page_url] = extract_sentences(html_text)
+        later_pages[entry.page_url] = extract_sentences(_verified_text(entry))
 
     return match_pages(
         earlier_pages,
