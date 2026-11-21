@@ -27,6 +27,8 @@ jobs:
         run: make check
       - name: Run sample-data demo
         run: make run query
+      - name: Run offline crawl freshness demo
+        run: make crawl-demo
 
   airflow-dag-import:
     runs-on: ubuntu-24.04

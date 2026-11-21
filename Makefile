@@ -1,6 +1,6 @@
 # GeoPipeline — local Field-day backfill and query
 
-.PHONY: help install test test-airflow lint typecheck check format clean run query validate databricks
+.PHONY: help install test test-airflow lint typecheck check format clean run query crawl-demo validate databricks
 
 SEASON_FROM ?= 2024-04-01
 SEASON_TO ?= 2024-05-15
@@ -18,6 +18,7 @@ help:
 	@echo "  make format     Ruff format"
 	@echo "  make run        Backfill the fixture season into $(DATA_ROOT)"
 	@echo "  make query      DuckDB rollup of the local Product"
+	@echo "  make crawl-demo Offline crawl freshness demo (handwritten + Cloudflare)"
 	@echo "  make validate   Confirm the DAG file wraps run_date"
 	@echo "  make databricks Backfill the fixture season, then databricks bundle deploy"
 	@echo "  make clean      Remove caches and local data/"
@@ -50,6 +51,9 @@ run:
 
 query:
 	uv run geopipeline query --data-root $(DATA_ROOT)
+
+crawl-demo:
+	uv run geopipeline crawl demo --output-dir $(DATA_ROOT)/crawl-demo
 
 validate:
 	@uv run python -c "\
