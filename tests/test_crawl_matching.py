@@ -220,3 +220,10 @@ def test_reordering_clauses_of_an_earlier_sentence_counts_only_the_rejoined_word
         "<p>Bots must obey robots.txt and operators can block crawlers.</p>",
         "<p>Operators can block crawlers and bots must obey robots.txt.</p>",
     ) == 1
+
+
+def test_one_changed_word_in_a_short_sentence_counts_one() -> None:
+    # Glossary: one changed word adds one word, even when no three-word run survives.
+    assert _one("<p>We use fast requests now.</p>", "<p>We use slow requests now.</p>") == 1
+    assert _one("<p>Fast crawlers read pages.</p>", "<p>Slow crawlers read pages.</p>") == 1
+    assert _one("<p>Bots read pages fast.</p>", "<p>Bots read pages slowly.</p>") == 1
