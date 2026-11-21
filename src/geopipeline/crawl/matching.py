@@ -91,21 +91,22 @@ class _EarlierCorpus:
         self.two_word_sentences = frozenset(s for s in self.sentences if len(s) == CONTEXT_WORDS)
         self._anchors = anchors
 
-    def differs_by_one_word(self, tokens: Tokens) -> int | None:
-        """Position of the one changed word if an earlier sentence differs from tokens only there."""
+    def one_word_changes(self, tokens: Tokens) -> set[int]:
+        """Changed positions of every earlier sentence that differs from tokens in one word only."""
         size = len(tokens)
         candidates = {i for i, pos in self._anchors.get(tokens[:1], []) if pos == 0}
         candidates |= {
             i for i, pos in self._anchors.get(tokens[-1:], []) if pos == len(self.sentences[i]) - 1
         }
-        for index in sorted(candidates):
+        changes: set[int] = set()
+        for index in candidates:
             earlier = self.sentences[index]
             if len(earlier) != size:
                 continue
             changed = [pos for pos in range(size) if earlier[pos] != tokens[pos]]
             if len(changed) == 1:
-                return changed[0]
-        return None
+                changes.add(changed[0])
+        return changes
 
     def tails_after(self, anchor: Tokens) -> list[Tokens]:
         return [self.sentences[i][pos + len(anchor) :] for i, pos in self._anchors.get(anchor, [])]
@@ -139,23 +140,13 @@ def _covered_words(tokens: Tokens, corpus: _EarlierCorpus) -> list[bool]:
         return covered
 
     # One changed word in a copy of an earlier sentence adds one word (glossary), even when
-    # the edit leaves no run, or another sentence's run reaches past the changed word.
-    changed = corpus.differs_by_one_word(tokens) if size >= 2 else None
-    if changed is not None:
-        return [flag or pos != changed for pos, flag in enumerate(covered)]
-
-    # Merged sentences: a two-word earlier sentence at one edge counts as earlier wording when
-    # the other edge is earlier wording too. One-word headings never cover a word this way.
-    pair = CONTEXT_WORDS
-    if size > pair:
-        starts = tokens[:pair] in corpus.two_word_sentences
-        ends = tokens[-pair:] in corpus.two_word_sentences
-        if starts and (ends or covered[-1]):
-            covered[:pair] = [True] * pair
-        if ends and (starts or covered[0]):
-            covered[-pair:] = [True] * pair
-    if not any(covered) or all(covered):
-        return covered
+    # the edit leaves no run, or another sentence's run reaches past the changed word. Each
+    # near copy covers every word but its changed one, so the order of near copies never matters.
+    changes = corpus.one_word_changes(tokens) if size >= 2 else set()
+    if changes:
+        return [flag or changes != {pos} for pos, flag in enumerate(covered)]
+    if not any(covered):
+        return _cover_merged_pairs(tokens, covered, corpus)
 
     # Uncovered end: align with earlier sentences that continue from the same covered words.
     if not covered[-1]:
@@ -174,6 +165,23 @@ def _covered_words(tokens: Tokens, corpus: _EarlierCorpus) -> list[bool]:
         keep = max((_common_prefix(gap, head) for head in corpus.heads_before(anchor)), default=0)
         for i in range(keep):
             covered[i] = True
+    return _cover_merged_pairs(tokens, covered, corpus)
+
+
+def _cover_merged_pairs(tokens: Tokens, covered: list[bool], corpus: _EarlierCorpus) -> list[bool]:
+    """Merged sentences: a two-word earlier sentence at one edge counts as earlier wording when
+    the rest of the sentence holds earlier wording too. One-word headings never cover this way."""
+    pair = CONTEXT_WORDS
+    if len(tokens) <= pair:
+        return covered
+    starts = tokens[:pair] in corpus.two_word_sentences
+    ends = tokens[-pair:] in corpus.two_word_sentences
+    rest_after = ends or any(covered[pair:])
+    rest_before = starts or any(covered[:-pair])
+    if starts and rest_after:
+        covered[:pair] = [True] * pair
+    if ends and rest_before:
+        covered[-pair:] = [True] * pair
     return covered
 
 

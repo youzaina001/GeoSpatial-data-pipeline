@@ -251,3 +251,32 @@ def test_merging_a_short_sentence_into_a_long_one_counts_only_the_joining_word()
 
 def test_a_one_word_earlier_heading_does_not_cover_words_in_new_headings() -> None:
     assert _one("<h2>Analytics</h2>", "<h2>Analytics</h2><h2>Referral analytics</h2>") == 2
+
+
+def test_one_word_copies_do_not_depend_on_unrelated_earlier_words() -> None:
+    # Round 2 reviews: the first near copy in alphabetical order decided the count.
+    # Every near copy covers its other words, so each pair below counts the same.
+    later = "<p>We use slow requests now.</p>"
+    fast = _one("<p>We use fast requests now.</p><p>We use slow requests today.</p>", later)
+    zippy = _one("<p>We use zippy requests now.</p><p>We use slow requests today.</p>", later)
+    assert fast == zippy == 0
+    later = "<p>We saw blue cars.</p>"
+    alpha = _one("<p>Alpha saw blue cars.</p><p>We saw red cars.</p>", later)
+    zebra = _one("<p>Zebra saw blue cars.</p><p>We saw red cars.</p>", later)
+    assert alpha == zebra == 0
+
+
+def test_merging_a_short_sentence_with_an_edited_or_extended_one_counts_the_edits() -> None:
+    # AGY round 2: the merge check ran before edge alignment and gave 4 for each.
+    assert _one(
+        "<p>Bots stop. The default timeout is ten seconds.</p>",
+        "<p>Bots stop and the default timeout is thirty seconds.</p>",
+    ) == 2
+    assert _one(
+        "<p>Set ten seconds as the default. Bots stop.</p>",
+        "<p>Set thirty seconds as the default and bots stop.</p>",
+    ) == 2
+    assert _one(
+        "<p>Bots stop. Users must wait for the crawler.</p>",
+        "<p>Bots stop and users must wait for the crawler today.</p>",
+    ) == 2
