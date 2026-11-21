@@ -284,7 +284,8 @@ def extract_sentences(article_html: str) -> list[Sentence]:
     technical tokens as single words.
     """
     sentences: list[Sentence] = []
-    document = _parse(article_html)
+    # Saved fragments have no document mode of their own (ADR 0018).
+    document = _parse("<!doctype html>" + article_html)
     root = document.root
     for raw_block in _prose_blocks(root) if root is not None else []:
         collapsed = _normalize_text(raw_block)

@@ -484,3 +484,15 @@ def test_end_tags_left_over_after_dropped_content_stay_linear() -> None:
     start = perf_counter()
     _article_texts(html)
     assert perf_counter() - start < 2.0
+
+
+def test_saved_article_fragment_uses_standards_mode() -> None:
+    for table, expected in [("<table>", ["alpha", "cell"]), ("<table hidden>", ["alpha"])]:
+        fragment = f"<article><p>Alpha{table}<tr><td>Cell</td></tr></table><a>Subscribe</a></article>"
+        assert [sentence.normalized_text for sentence in extract_sentences(fragment)] == expected
+
+
+def test_replay_document_honors_its_original_doctype() -> None:
+    page = "<html><body><main><p>Alpha<table><tr><td>Cell</td></tr></table><a>Subscribe</a></main></body></html>"
+    assert "<p>Alpha<table>" in extract_article_html(page)
+    assert "<p>Alpha</p><table>" in extract_article_html("<!doctype html>" + page)
