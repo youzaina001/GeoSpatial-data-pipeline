@@ -280,3 +280,8 @@ def test_merging_a_short_sentence_with_an_edited_or_extended_one_counts_the_edit
         "<p>Bots stop. Users must wait for the crawler.</p>",
         "<p>Bots stop and users must wait for the crawler today.</p>",
     ) == 2
+
+
+def test_two_short_sentences_sharing_a_word_do_not_cover_a_three_word_sentence() -> None:
+    # AGY round 3: the two edges of a three-word sentence overlap, so they are not a merge.
+    assert _one("<p>Bots stop.</p><p>Stop now.</p>", "<p>Bots stop now.</p>") == 3

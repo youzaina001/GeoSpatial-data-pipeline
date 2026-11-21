@@ -170,14 +170,16 @@ def _covered_words(tokens: Tokens, corpus: _EarlierCorpus) -> list[bool]:
 
 def _cover_merged_pairs(tokens: Tokens, covered: list[bool], corpus: _EarlierCorpus) -> list[bool]:
     """Merged sentences: a two-word earlier sentence at one edge counts as earlier wording when
-    the rest of the sentence holds earlier wording too. One-word headings never cover this way."""
+    the rest of the sentence holds earlier wording too. One-word headings never cover this way.
+    The edges of a three-word sentence share a word, so they never vouch for each other."""
     pair = CONTEXT_WORDS
     if len(tokens) <= pair:
         return covered
     starts = tokens[:pair] in corpus.two_word_sentences
     ends = tokens[-pair:] in corpus.two_word_sentences
-    rest_after = ends or any(covered[pair:])
-    rest_before = starts or any(covered[:-pair])
+    disjoint = len(tokens) >= 2 * pair
+    rest_after = (ends and disjoint) or any(covered[pair:])
+    rest_before = (starts and disjoint) or any(covered[:-pair])
     if starts and rest_after:
         covered[:pair] = [True] * pair
     if ends and rest_before:
