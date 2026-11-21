@@ -295,10 +295,20 @@ def test_tags_inside_skipped_controls_never_close_the_visible_block_around_them(
     assert _article_texts("<p>Edit <noscript></p><p>Hidden leak</p></noscript> after.</p>") == [
         "edit after"
     ]
-    assert _article_texts("<p>Note <label><p>Label leak</p></label> tail.</p>") == ["note tail"]
+
+
+
+def test_markup_a_browser_moves_out_of_a_control_counts_where_the_browser_puts_it() -> None:
+    # Round 7: a <p> inside <label> closes the paragraph and the label, and a <td> inside a
+    # <button> starts a new cell, so a browser shows that text as page prose. The " end"
+    # after the stray </button> is moved before the table, outside any prose block.
+    assert _article_texts("<p>Note <label><p>Label leak</p></label> tail.</p>") == [
+        "note",
+        "label leak",
+    ]
     assert _article_texts(
         "<table><tr><td>Cell <button><td>Button td</td></button> end</td></tr></table>"
-    ) == ["cell end"]
+    ) == ["cell", "button td"]
 
 
 def test_closing_a_skipped_element_ends_everything_left_open_inside_it() -> None:
@@ -307,13 +317,18 @@ def test_closing_a_skipped_element_ends_everything_left_open_inside_it() -> None
     later = "<p>Visible prose.</p>"
     for skipped in (
         "<template><tr><td>Draft cell</template>",
-        "<svg><foreignObject><p>Icon</foreignObject></svg>",
         "<svg><div></svg>",
         "<nav><button>Menu</nav>",
         "<div hidden><button>Toggle</div>",
         "<noscript><table><tr><td>Off</noscript>",
     ):
         assert _article_texts(skipped + later) == ["visible prose"], skipped
+
+
+def test_an_unclosed_paragraph_inside_an_svg_keeps_what_follows_inside_the_svg() -> None:
+    # Round 7: </foreignObject> and </svg> cannot close an open <p> in a browser, so the next
+    # paragraph is built inside the icon and is dropped with it.
+    assert _article_texts("<svg><foreignObject><p>Icon</foreignObject></svg><p>Inside icon.</p>") == []
 
 
 def test_an_unclosed_control_inside_a_list_or_cell_ends_with_it() -> None:
@@ -362,3 +377,110 @@ def test_replay_extraction_closes_omitted_end_tags_like_prose_extraction() -> No
         "<main><p>Alpha<nav><a href='/'>Home</a></nav><a href='/rss.xml'>Subscribe</a></main>"
     )
     assert [s.normalized_text for s in extract_sentences(nav)] == ["alpha"]
+
+
+def _replay_texts(replay: str) -> list[str]:
+    return [s.normalized_text for s in extract_sentences(extract_article_html(replay))]
+
+
+def test_a_self_closing_svg_icon_closes_itself_as_in_a_browser() -> None:
+    # Round 6 reviews: <svg/> stayed open and swallowed every later paragraph.
+    assert _article_texts('<svg class="icon"/><p>Visible prose.</p>') == ["visible prose"]
+    assert _article_texts("<p>Icon <svg/> text.</p><p>Next paragraph.</p>") == [
+        "icon text",
+        "next paragraph",
+    ]
+    assert _replay_texts('<main><svg class="icon"/><p>Visible prose.</p></main>') == ["visible prose"]
+    assert _replay_texts('<svg class="icon"/><main><p>Visible prose.</p></main>') == ["visible prose"]
+
+
+def test_end_tags_inside_a_template_never_close_anything_outside_it() -> None:
+    # Round 6 AGY: </td>, </li> or </div> inside a <template> escaped it and leaked its text.
+    assert _article_texts(
+        "<table><tr><td>Cell <template></td><p>Template leak</p></template> tail.</td></tr></table>"
+    ) == ["cell tail"]
+    assert _article_texts("<ul><li>Item <template></li><p>Template leak</p></template> tail.</li></ul>") == [
+        "item tail"
+    ]
+    assert _article_texts("<div><p>Before <template></div><p>Template leak</p></template> after.</p></div>") == [
+        "before after"
+    ]
+    assert _replay_texts(
+        "<div><template></div><main><p>Fake main.</p></main></template><main><p>Real main.</p></main></div>"
+    ) == ["real main"]
+
+
+def test_closing_a_dropped_container_ends_the_controls_left_open_inside_it() -> None:
+    # Round 6 AGY: a second dropped element inside <label>, <template>, <noscript> or <select>
+    # kept the outer one open, so every later paragraph was dropped.
+    later = "<p>Visible prose.</p>"
+    for skipped in (
+        "<label><svg><g></label>",
+        "<template><tr><td><button>Draft</template>",
+        "<noscript><table><tr><td><button>Off</noscript>",
+        "<select><td><option>One</select>",
+    ):
+        assert _article_texts(skipped + later) == ["visible prose"], skipped
+    assert _replay_texts("<template><tr><td><button>Draft</template><main><p>Real.</p></main>") == ["real"]
+
+
+def test_noscript_content_is_raw_text_as_in_a_browser_with_scripts_on() -> None:
+    # Round 6 AGY: </div> inside <noscript> closed the outer block and leaked the fallback text.
+    assert _article_texts(
+        "<div><p>Before <noscript></div><p>Noscript leak</p></noscript> after.</p></div>"
+    ) == ["before after"]
+
+
+def test_a_self_closing_block_closes_an_open_hidden_element() -> None:
+    # Round 6 AGY: <h2/>, <li/> and <div/> were ignored while hidden content was open.
+    assert _article_texts("<p hidden>Draft<h2/>Visible heading</h2>") == ["visible heading"]
+    assert _article_texts("<ul><li hidden>Secret<li/>Visible item</ul>") == ["visible item"]
+    assert _article_texts("<p hidden>Draft<div/><strong>Visible headline</strong>") == ["visible headline"]
+    assert _replay_texts(
+        '<main><p hidden>Draft<hr/><span class="sl-markdown-content"><p>Body.</p></span>'
+        "<p>Sidebar noise.</p></main>"
+    ) == ["body"]
+
+
+def test_a_hidden_rule_still_splits_the_block_around_it() -> None:
+    # Codex and AGY round 6: <hr hidden> inside a list item fused the sentences on each side.
+    assert _article_texts("<ul><li>Run this command.<hr hidden>Then check the status.</li></ul>") == [
+        "run this command",
+        "then check the status",
+    ]
+    assert _article_texts('<blockquote>One<hr aria-hidden="true">Two.</blockquote>') == ["one", "two"]
+
+
+def test_replay_cleanup_keeps_the_split_where_it_removes_a_block() -> None:
+    # Codex and AGY round 6: stripping a dropped block from a list item, cell or quote
+    # joined the text on each side, so replay and direct extraction disagreed.
+    for html in (
+        "<ul><li>Run this command.<div hidden>Draft</div>Then check the status.</li></ul>",
+        "<ul><li>Run this command.<nav><a href='/'>Home</a></nav>Then check the status.</li></ul>",
+        "<blockquote>Run this command.<aside>Skip</aside>Then check the status.</blockquote>",
+        "<table><tr><td>Run this command.<aside>Skip</aside>Then check the status.</td></tr></table>",
+    ):
+        assert _replay_texts(f"<main>{html}</main>") == _article_texts(html), html
+        assert _article_texts(html) == ["run this command", "then check the status"], html
+
+
+def test_replay_extraction_handles_unclosed_cells_and_titles() -> None:
+    # Round 6 AGY: an unclosed <td> left <main> unfinished, and an unclosed <h1> inside the
+    # markdown body was repeated.
+    assert _replay_texts("<main><table><tr><td>cell") == ["cell"]
+    replay = '<main><div class="sl-markdown-content"><h1>Title<p>Body.</p></div></main>'
+    assert _replay_texts(replay) == ["title", "body"]
+
+
+def test_an_optional_colgroup_end_tag_is_implied_before_the_rows() -> None:
+    assert _article_texts("<table><colgroup hidden><col><tr><td>Visible</td></tr></table>") == ["visible"]
+
+
+def test_end_tags_left_over_after_dropped_content_stay_linear() -> None:
+    # Codex round 6: each stray </span> scanned the whole dropped subtree.
+    from time import perf_counter
+
+    html = "<p>First</p><span><svg>" + "<div>" * 8000 + "</span>" * 8000
+    start = perf_counter()
+    _article_texts(html)
+    assert perf_counter() - start < 2.0
