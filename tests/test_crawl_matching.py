@@ -121,3 +121,102 @@ def test_code_block_only_change_counts_zero() -> None:
     per_page, total = _run(earlier, later)
     assert per_page == {"https://example.com/c": 0}
     assert total == 0
+
+
+def _one(earlier_html: str, later_html: str) -> int:
+    per_page, total = _run(
+        {"https://example.com/a": f"<article>{earlier_html}</article>"},
+        {"https://example.com/a": f"<article>{later_html}</article>"},
+    )
+    assert per_page["https://example.com/a"] == total
+    count = per_page["https://example.com/a"]
+    assert count is not None
+    return count
+
+
+def test_merging_two_earlier_sentences_counts_only_the_joining_word() -> None:
+    # Reproduced at 16b27d6: the closest-sentence matcher gave 5.
+    assert _one(
+        "<p>Bots must obey robots.txt. Operators can block crawlers.</p>",
+        "<p>Bots must obey robots.txt and operators can block crawlers.</p>",
+    ) == 1
+
+
+def test_reordering_earlier_sentences_counts_zero() -> None:
+    # Reproduced at 16b27d6: the closest-sentence matcher gave 3.
+    assert _one(
+        "<p>Bots must obey robots.txt. Operators can block crawlers.</p>",
+        "<p>Operators can block crawlers. Bots must obey robots.txt.</p>",
+    ) == 0
+
+
+def test_near_copy_of_an_earlier_sentence_counts_the_changed_word_wherever_it_appears() -> None:
+    earlier = {
+        "https://example.com/a": "<article><p>Crawlers must respect the crawl delay set in robots.txt.</p></article>",
+        "https://example.com/b": "<article><p>Operators can block crawlers. Logs show each request.</p></article>",
+    }
+    later = {
+        "https://example.com/b": (
+            "<article><p>Operators can block crawlers. "
+            "Crawlers must respect the crawl delay defined in robots.txt. "
+            "Logs show each request.</p></article>"
+        ),
+    }
+    per_page, total = _run(earlier, later)
+    assert per_page == {"https://example.com/b": 1}
+    assert total == 1
+
+
+def test_inserting_an_unseen_twelve_word_sentence_mid_paragraph_counts_twelve() -> None:
+    first = " ".join(f"alpha{i}" for i in range(1, 41)) + "."
+    second = " ".join(f"omega{i}" for i in range(1, 41)) + "."
+    added = "One two three four five six seven eight nine ten eleven twelve."
+    assert _one(f"<p>{first} {second}</p>", f"<p>{first} {added} {second}</p>") == 12
+
+
+def test_one_word_edits_at_sentence_start_and_near_the_end_count_one_each() -> None:
+    assert _one(
+        "<p>Set ten seconds as the default.</p>",
+        "<p>Set thirty seconds as the default.</p>",
+    ) == 1
+    assert _one(
+        "<p>The default timeout is ten seconds now.</p>",
+        "<p>The default timeout is thirty seconds now.</p>",
+    ) == 1
+
+
+def test_extending_a_sentence_counts_only_the_added_words() -> None:
+    assert _one(
+        "<p>The default timeout is ten seconds.</p>",
+        "<p>The default timeout is ten seconds for every upload.</p>",
+    ) == 3
+
+
+def test_formatting_capitalization_and_heading_changes_count_zero() -> None:
+    assert _one(
+        "<p>Bots must obey robots.txt. Operators can block crawlers.</p>",
+        "<h2>BOTS must <strong>obey</strong> Robots.txt</h2><p>Operators can <em>block</em> crawlers.</p>",
+    ) == 0
+
+
+def test_added_sentence_explaining_a_code_block_counts_like_other_prose() -> None:
+    assert _one(
+        "<p>Use this rule.</p><pre><code>allow: /a</code></pre>",
+        "<p>Use this rule.</p><pre><code>allow: /a</code></pre><p>The rule allows <code>/a</code> paths.</p>",
+    ) == 5
+
+
+def test_unseen_sentence_with_common_edge_words_still_counts_every_word() -> None:
+    # Edge alignment needs covered neighbours; a sentence with none keeps all its words.
+    assert _one(
+        "<p>The crawler reads the page.</p>",
+        "<p>The crawler reads the page. The new header changes how bots read the page.</p>",
+    ) == 9
+
+
+def test_reordering_clauses_of_an_earlier_sentence_counts_only_the_rejoined_word() -> None:
+    # The closest-sentence matcher at 16b27d6 gave 9 here. Only "and" sits in new wording.
+    assert _one(
+        "<p>Bots must obey robots.txt and operators can block crawlers.</p>",
+        "<p>Operators can block crawlers and bots must obey robots.txt.</p>",
+    ) == 1

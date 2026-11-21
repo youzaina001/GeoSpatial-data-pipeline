@@ -1,17 +1,17 @@
-# Corpus-wide prose sentence matching
-"""Match later crawl sentences against the entire earlier corpus and emit ADR 0018 table rows."""
+# Corpus-wide word-run matching
+"""Find new words by three-word runs against the whole earlier corpus and emit ADR 0018 table rows."""
 
 from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from difflib import SequenceMatcher
 from typing import Literal
 
 from geopipeline.crawl.extract import Sentence, extract_sentences
 from geopipeline.crawl.manifest import CaptureEntry, SampleManifest
 
-SIMILARITY_THRESHOLD = 0.5
+RUN_LENGTH = 3
+CONTEXT_WORDS = RUN_LENGTH - 1
 PageStatus = Literal["compared", "comparison_incomplete"]
 
 
@@ -53,42 +53,112 @@ class MatchResult:
     excluded_diagnostics: tuple[ExcludedPageDiagnostic, ...]
 
 
-def passage_id_for(normalized_sentence: str) -> str:
-    return hashlib.sha256(normalized_sentence.encode("utf-8")).hexdigest()
+def passage_id_for(words: tuple[str, ...], left: tuple[str, ...], right: tuple[str, ...]) -> str:
+    """Identify a new passage by its words, plus its neighbours when it is shorter than a run."""
+    if len(words) >= RUN_LENGTH:
+        key = " ".join(words)
+    else:
+        key = f"{' '.join(left)} [{' '.join(words)}] {' '.join(right)}"
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
-def _new_word_count(
-    later_sentence: Sentence,
-    earlier_exact: frozenset[str],
-    earlier_corpus: tuple[Sentence, ...],
-) -> int:
-    if later_sentence.normalized_text in earlier_exact:
-        return 0
+Tokens = tuple[str, ...]
 
-    best_ratio = 0.0
-    best_earlier: Sentence | None = None
-    later_tokens = later_sentence.tokens
 
-    # earlier_corpus is sorted lexicographically by normalized_text, so strict '>'
-    # deterministically breaks ties in favor of the lexicographically smallest baseline.
-    for candidate in earlier_corpus:
-        matcher = SequenceMatcher(None, candidate.tokens, later_tokens, autojunk=False)
-        if matcher.quick_ratio() < SIMILARITY_THRESHOLD:
+@dataclass(frozen=True)
+class NewPassage:
+    passage_id: str
+    word_count: int
+
+
+class _EarlierCorpus:
+    """Every run of up to RUN_LENGTH consecutive words inside an earlier sentence."""
+
+    def __init__(self, earlier_pages: dict[str, list[Sentence]]) -> None:
+        self.sentences: tuple[Tokens, ...] = tuple(
+            sorted({sentence.tokens for sentences in earlier_pages.values() for sentence in sentences})
+        )
+        runs: set[Tokens] = set()
+        anchors: dict[Tokens, list[tuple[int, int]]] = {}
+        for index, tokens in enumerate(self.sentences):
+            for length in range(1, RUN_LENGTH + 1):
+                for pos in range(len(tokens) - length + 1):
+                    run = tokens[pos : pos + length]
+                    runs.add(run)
+                    if length <= CONTEXT_WORDS:
+                        anchors.setdefault(run, []).append((index, pos))
+        self.runs = frozenset(runs)
+        self._anchors = anchors
+
+    def tails_after(self, anchor: Tokens) -> list[Tokens]:
+        return [self.sentences[i][pos + len(anchor) :] for i, pos in self._anchors.get(anchor, [])]
+
+    def heads_before(self, anchor: Tokens) -> list[Tokens]:
+        return [self.sentences[i][:pos] for i, pos in self._anchors.get(anchor, [])]
+
+
+def _common_prefix(a: Tokens, b: Tokens) -> int:
+    count = 0
+    for x, y in zip(a, b, strict=False):
+        if x != y:
+            break
+        count += 1
+    return count
+
+
+def _common_suffix(a: Tokens, b: Tokens) -> int:
+    return _common_prefix(a[::-1], b[::-1])
+
+
+def _covered_words(tokens: Tokens, corpus: _EarlierCorpus) -> list[bool]:
+    """Mark later words covered by an earlier run, then align uncovered sentence edges (ADR 0018)."""
+    size = len(tokens)
+    covered = [False] * size
+    width = min(RUN_LENGTH, size)
+    for pos in range(size - width + 1):
+        if tokens[pos : pos + width] in corpus.runs:
+            covered[pos : pos + width] = [True] * width
+    if not any(covered) or all(covered):
+        return covered
+
+    # Uncovered end: align with earlier sentences that continue from the same covered words.
+    if not covered[-1]:
+        start = max(i for i, flag in enumerate(covered) if flag) + 1
+        anchor = tokens[max(0, start - CONTEXT_WORDS) : start]
+        gap = tokens[start:]
+        keep = max((_common_suffix(gap, tail) for tail in corpus.tails_after(anchor)), default=0)
+        for i in range(size - keep, size):
+            covered[i] = True
+
+    # Uncovered start: align with earlier sentences that lead into the same covered words.
+    if not covered[0]:
+        end = covered.index(True)
+        anchor = tokens[end : end + CONTEXT_WORDS]
+        gap = tokens[:end]
+        keep = max((_common_prefix(gap, head) for head in corpus.heads_before(anchor)), default=0)
+        for i in range(keep):
+            covered[i] = True
+    return covered
+
+
+def _new_passages(tokens: Tokens, corpus: _EarlierCorpus) -> list[NewPassage]:
+    covered = _covered_words(tokens, corpus)
+    passages: list[NewPassage] = []
+    pos = 0
+    size = len(tokens)
+    while pos < size:
+        if covered[pos]:
+            pos += 1
             continue
-        ratio = matcher.ratio()
-        if ratio >= SIMILARITY_THRESHOLD and ratio > best_ratio:
-            best_ratio = ratio
-            best_earlier = candidate
-
-    if best_earlier is None:
-        return len(later_tokens)
-
-    diff = SequenceMatcher(None, best_earlier.tokens, later_tokens, autojunk=False)
-    return sum(
-        j2 - j1
-        for tag, _i1, _i2, j1, j2 in diff.get_opcodes()
-        if tag in {"insert", "replace"}
-    )
+        end = pos
+        while end < size and not covered[end]:
+            end += 1
+        words = tokens[pos:end]
+        left = ("^",) * max(0, CONTEXT_WORDS - pos) + tokens[max(0, pos - CONTEXT_WORDS) : pos]
+        right = tokens[end : end + CONTEXT_WORDS] + ("$",) * max(0, end + CONTEXT_WORDS - size)
+        passages.append(NewPassage(passage_id_for(words, left, right), len(words)))
+        pos = end
+    return passages
 
 
 def match_pages(
@@ -99,62 +169,45 @@ def match_pages(
     later_urls: dict[str, str | None] | None = None,
     failed_pages: dict[str, ExcludedPageDiagnostic] | None = None,
 ) -> MatchResult:
-    """Compare extracted later sentences against all readable earlier sentences corpus-wide."""
+    """Find words in later sentences that sit outside every earlier three-word run, corpus-wide."""
     earlier_urls = earlier_urls or {}
     later_urls = later_urls or {}
     failed_pages = failed_pages or {}
 
-    unique_earlier_by_text: dict[str, Sentence] = {}
-    for sentences in earlier_pages.values():
-        for sentence in sentences:
-            unique_earlier_by_text.setdefault(sentence.normalized_text, sentence)
-    earlier_corpus = tuple(
-        unique_earlier_by_text[key] for key in sorted(unique_earlier_by_text)
-    )
-    earlier_exact = frozenset(unique_earlier_by_text.keys())
-
-    score_cache: dict[str, int] = {}
+    corpus = _EarlierCorpus(earlier_pages)
+    cache: dict[Tokens, list[NewPassage]] = {}
     page_rows: list[PageRow] = []
     passage_rows: list[PassageRow] = []
     excluded_diagnostics: list[ExcludedPageDiagnostic] = []
 
     all_later_urls = sorted(set(later_pages.keys()) | set(failed_pages.keys()))
     for page_url in all_later_urls:
-        if page_url in failed_pages:
-            page_rows.append(
-                PageRow(
-                    page_url=page_url,
-                    status="comparison_incomplete",
-                    earlier_capture_url=earlier_urls.get(page_url),
-                    later_capture_url=later_urls.get(page_url),
-                )
-            )
-            excluded_diagnostics.append(failed_pages[page_url])
-            continue
-
+        status: PageStatus = "comparison_incomplete" if page_url in failed_pages else "compared"
         page_rows.append(
             PageRow(
                 page_url=page_url,
-                status="compared",
+                status=status,
                 earlier_capture_url=earlier_urls.get(page_url),
                 later_capture_url=later_urls.get(page_url),
             )
         )
-        seen_passages: set[str] = set()
+        if page_url in failed_pages:
+            excluded_diagnostics.append(failed_pages[page_url])
+            continue
+
+        seen: set[str] = set()
         for sentence in later_pages[page_url]:
-            norm = sentence.normalized_text
-            if norm in seen_passages:
-                continue
-            seen_passages.add(norm)
-            if norm not in score_cache:
-                score_cache[norm] = _new_word_count(sentence, earlier_exact, earlier_corpus)
-            words = score_cache[norm]
-            if words > 0:
+            if sentence.tokens not in cache:
+                cache[sentence.tokens] = _new_passages(sentence.tokens, corpus)
+            for passage in cache[sentence.tokens]:
+                if passage.passage_id in seen:
+                    continue
+                seen.add(passage.passage_id)
                 passage_rows.append(
                     PassageRow(
                         page_url=page_url,
-                        passage_id=passage_id_for(norm),
-                        word_count=words,
+                        passage_id=passage.passage_id,
+                        word_count=passage.word_count,
                     )
                 )
 
