@@ -1,9 +1,7 @@
-# GeoPipeline — local Field-day backfill and query
+# GeoPipeline: offline crawl freshness pipeline
 
-.PHONY: help install test test-airflow lint typecheck check format clean run query crawl-demo validate databricks
+.PHONY: help install test test-cov lint typecheck check format clean crawl-demo
 
-SEASON_FROM ?= 2024-04-01
-SEASON_TO ?= 2024-05-15
 DATA_ROOT ?= data
 
 help:
@@ -11,16 +9,11 @@ help:
 	@echo ""
 	@echo "  make install    Install the package and development tools"
 	@echo "  make test       Run the test suite"
-	@echo "  make test-airflow Verify Airflow 3 DAG import with the airflow extra"
 	@echo "  make lint       Ruff check"
 	@echo "  make typecheck  Mypy typecheck"
-	@echo "  make check      Run test, lint, typecheck, and validate"
+	@echo "  make check      Run test, lint, and typecheck"
 	@echo "  make format     Ruff format"
-	@echo "  make run        Backfill the fixture season into $(DATA_ROOT)"
-	@echo "  make query      DuckDB rollup of the local Product"
 	@echo "  make crawl-demo Offline crawl freshness demo (handwritten + Cloudflare)"
-	@echo "  make validate   Confirm the DAG file wraps run_date"
-	@echo "  make databricks Backfill the fixture season, then databricks bundle deploy"
 	@echo "  make clean      Remove caches and local data/"
 
 install:
@@ -29,54 +22,22 @@ install:
 test:
 	uv run --extra dev python -m pytest tests/ -v
 
-test-airflow:
-	GEOPIPELINE_REQUIRE_AIRFLOW=1 uv run --frozen --extra dev --extra airflow python -m pytest tests/test_dag.py -rs -v
-
 test-cov:
 	uv run --extra dev python -m pytest tests/ -v --cov=geopipeline --cov-report=term-missing
 
 lint:
-	uv run --extra dev ruff check src/ dags/ tests/
+	uv run --extra dev ruff check src/ tests/
 
 typecheck:
-	uv run --extra dev mypy src/ dags/ tests/
+	uv run --extra dev mypy src/ tests/
 
-check: test lint typecheck validate
+check: test lint typecheck
 
 format:
-	uv run --extra dev ruff format src/ dags/ tests/
-
-run:
-	uv run geopipeline run --from $(SEASON_FROM) --to $(SEASON_TO) --data-root $(DATA_ROOT)
-
-query:
-	uv run geopipeline query --data-root $(DATA_ROOT)
+	uv run --extra dev ruff format src/ tests/
 
 crawl-demo:
 	uv run geopipeline crawl demo --output-dir $(DATA_ROOT)/crawl-demo
-
-validate:
-	@uv run python -c "\
-from pathlib import Path; \
-text = Path('dags/field_days_dag.py').read_text(); \
-assert 'from geopipeline.pipeline import run_scheduled_date' in text; \
-assert 'dag_id=\"field_days\"' in text; \
-print('field_days DAG wraps geopipeline.pipeline.run_scheduled_date')"
-
-databricks: run
-	@command -v databricks >/dev/null 2>&1 || { \
-		echo "Databricks CLI not found. Clone-default is: uv sync && make run && make query."; \
-		exit 1; \
-	}
-	@test "$(DATA_ROOT)" = "data" || { \
-		echo "make databricks syncs data/product/field_days; leave DATA_ROOT at data."; \
-		exit 1; \
-	}
-	@test -d data/product/field_days || { \
-		echo "Field-day Product missing at data/product/field_days. Run make run first."; \
-		exit 1; \
-	}
-	databricks bundle deploy
 
 clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov data
