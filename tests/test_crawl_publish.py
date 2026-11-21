@@ -375,3 +375,29 @@ def test_cli_has_no_commit_override_and_no_compare_command(argv: list[str]) -> N
     with pytest.raises(SystemExit) as excinfo:
         main(argv)
     assert excinfo.value.code == 2
+
+
+def test_promotion_keeps_maintainer_diagnostics_out_of_the_site(tmp_path: Path) -> None:
+    manifest, head = committed_sample(tmp_path / "repo", include_failed=True)
+    run_dir = build_run(manifest, tmp_path / "runs")
+    site = tmp_path / "site"
+
+    assert promote(run_dir, site, confirm=True).published is True
+    assert not (site / "releases" / head / "run-summary.json").exists()
+    for path in site.rglob("*"):
+        if path.is_file():
+            assert "Wayback replay" not in path.read_text(encoding="utf-8"), path
+
+
+def test_promotion_refuses_an_excluded_page_with_a_word_count(tmp_path: Path) -> None:
+    manifest, _ = committed_sample(tmp_path / "repo", include_failed=True)
+    run_dir = build_run(manifest, tmp_path / "runs")
+    comparison = _json(run_dir / "comparison.json")
+    excluded = [p for p in comparison["pages"] if p["status"] == "comparison_incomplete"]
+    assert excluded and all(p["new_words"] is None for p in excluded)
+    excluded[0]["new_words"] = "broken"
+    (run_dir / "comparison.json").write_text(json.dumps(comparison), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="inconsistent new_words"):
+        promote(run_dir, tmp_path / "site", confirm=True)
+    assert not (tmp_path / "site" / "comparison.json").exists()

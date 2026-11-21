@@ -252,9 +252,12 @@ def _validate_comparison(data: object, source: Path) -> dict[str, Any]:
     for page in pages:
         if not isinstance(page, dict) or page.get("status") not in counts:
             raise bad("each page needs a known status")
-        compared = page["status"] == "compared"
         words = page.get("new_words")
-        if compared != (isinstance(words, int) and not isinstance(words, bool) and words >= 0):
+        if page["status"] == "compared":
+            consistent = isinstance(words, int) and not isinstance(words, bool) and words >= 0
+        else:
+            consistent = words is None
+        if not consistent:
             raise bad(f"page {page.get('url')} has an inconsistent new_words")
         counts[page["status"]] += 1
     expected = {"compared_pages": counts["compared"], "excluded_pages": counts["comparison_incomplete"]}
@@ -343,8 +346,6 @@ def promote(run_dir: Path, publish_dir: Path, *, confirm: bool) -> Promotion:
             )
     else:
         _write_atomic(release_file, candidate_bytes)
-        if summary_path.is_file():
-            _write_atomic(release_dir / SUMMARY_FILE, summary_path.read_bytes())
     _write_atomic(target, candidate_bytes)
     return Promotion(preview=preview, published=True)
 
