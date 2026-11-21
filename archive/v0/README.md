@@ -1,4 +1,4 @@
-# v0 — Airflow on Minikube (prior art)
+# v0: Airflow on Minikube (prior art)
 
 This directory is the previous portfolio demo: Terraform + Helm for Airflow and
 MinIO on Minikube, two DAGs, and a tile-ingest / JSON-report path.
