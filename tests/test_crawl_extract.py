@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from geopipeline.crawl.extract import extract_article_html, extract_sentences
 
 
@@ -496,3 +498,87 @@ def test_replay_document_honors_its_original_doctype() -> None:
     page = "<html><body><main><p>Alpha<table><tr><td>Cell</td></tr></table><a>Subscribe</a></main></body></html>"
     assert "<p>Alpha<table>" in extract_article_html(page)
     assert "<p>Alpha</p><table>" in extract_article_html("<!doctype html>" + page)
+
+
+def test_hidden_html_root_drops_all_prose_and_replay_containers() -> None:
+    for root_attrs in (
+        "hidden",
+        'aria-hidden="true"',
+        'class="sr-only"',
+        'id="wm-ipp-base"',
+    ):
+        assert extract_sentences(f"<html {root_attrs}><p>Hidden page.</p></html>") == [], root_attrs
+        with pytest.raises(ValueError, match="No <main> or <article> container found"):
+            extract_article_html(f"<html {root_attrs}><main><p>Hidden page.</p></main></html>")
+
+
+def test_search_element_splits_prose_directly_and_through_replay() -> None:
+    for html in (
+        "<ul><li>Run this command.<search hidden>Find</search>Then check the status.</li></ul>",
+        "<table><tr><td>Run this command.<search hidden>Find</search>Then check the status.</td></tr></table>",
+        '<blockquote>Run this command.<search aria-hidden="true">Find</search>Then check the status.</blockquote>',
+    ):
+        assert _article_texts(html) == ["run this command", "then check the status"], html
+        assert _replay_texts(f"<main>{html}</main>") == ["run this command", "then check the status"], html
+
+    visible = "<ul><li>Run this command.<search>Find</search>Then check the status.</li></ul>"
+    assert _article_texts(visible) == ["run this command", "find", "then check the status"]
+    assert _replay_texts(f"<main>{visible}</main>") == ["run this command", "find", "then check the status"]
+
+    closes_p = "<p>Alpha<search hidden>Find</search><a href='/rss.xml'>Subscribe</a>"
+    assert _article_texts(closes_p) == ["alpha"]
+    assert _replay_texts(f"<main>{closes_p}</main>") == ["alpha"]
+
+
+def test_replay_preserves_markdown_wrapper_title_ancestry_and_rejects_chrome_only_titles() -> None:
+    assert _replay_texts('<main><table class="sl-markdown-content"><tr><td>Cell text.</td></tr></table></main>') == [
+        "cell text"
+    ]
+    assert _replay_texts('<main><table><tr><td class="sl-markdown-content">Cell text.</td></tr></table></main>') == [
+        "cell text"
+    ]
+    assert _replay_texts('<main><p class="sl-markdown-content">Body <strong>bold</strong> text.</p></main>') == [
+        "body bold text"
+    ]
+    assert _replay_texts('<main><strong class="sl-markdown-content">Headline</strong></main>') == ["headline"]
+    assert _replay_texts('<main><h1 class="sl-markdown-content">Title <strong>Sub</strong></h1></main>') == [
+        "title sub"
+    ]
+    assert _replay_texts('<main><h1>Title <div class="sl-markdown-content"><p>Body.</p></div></h1></main>') == [
+        "title",
+        "body",
+    ]
+
+    for empty_title in (
+        '<main><h1><button>Copy</button></h1><div class="sl-markdown-content"><nav>Nav</nav></div></main>',
+        '<main><h1><span class="sr-only">Hidden</span></h1><div class="sl-markdown-content"><nav>Nav</nav></div></main>',
+        '<main><h1><div hidden>Draft</div></h1><div class="sl-markdown-content"><nav>Nav</nav></div></main>',
+    ):
+        with pytest.raises(ValueError, match="Extracted article HTML is empty"):
+            extract_article_html(empty_title)
+
+    article = extract_article_html(
+        '<main><h1><button>Copy</button></h1><div class="sl-markdown-content"><p>Body.</p></div></main>'
+    )
+    assert "<h1>" not in article
+    assert _texts(article) == ["body"]
+
+
+def test_nested_strong_inside_standalone_strong_stays_one_headline() -> None:
+    assert _article_texts("<strong>Use <strong>robots.txt</strong> rules</strong><a href='/rss.xml'>Subscribe</a>") == [
+        "use robots.txt rules"
+    ]
+    assert (
+        _article_texts(
+            "<strong>Use <em><strong>robots.txt</strong></em> rules</strong><a href='/rss.xml'>Subscribe</a>"
+        )
+        == ["use robots.txt rules"]
+    )
+    assert _article_texts("<strong>First</strong><strong>Second</strong>") == ["first", "second"]
+    assert (
+        _article_texts("<strong>Headline <p>Para</p> tail</strong><a href='/rss.xml'>Subscribe</a>")
+        == ["headline", "para", "tail"]
+    )
+    assert _article_texts("<p>Use <strong><strong>robots.txt</strong></strong> rules.</p>") == [
+        "use robots.txt rules"
+    ]

@@ -67,8 +67,13 @@ PROSE_SKIP_TAGS = CHROME_TAGS | frozenset({"pre"})
 _SPLIT_TAGS = BLOCK_BOUNDARY_TAGS | frozenset(
     {
         "address", "aside", "center", "details", "dialog", "dir", "fieldset", "footer",
-        "form", "header", "hgroup", "listing", "main", "menu", "nav", "summary", "xmp",
+        "form", "header", "hgroup", "listing", "main", "menu", "nav", "search", "summary",
+        "xmp",
     }
+)
+
+_TABLE_PART_TAGS = frozenset(
+    {"caption", "col", "colgroup", "thead", "tbody", "tfoot", "tr", "th", "td"}
 )
 
 SENTENCE_SPLIT_RE = re.compile(
@@ -140,7 +145,7 @@ def _walk(root: LexborNode, skip_tags: frozenset[str]) -> Iterator[tuple[str, Le
                 yield "comment", node, ""
             continue
         tag = node.tag or ""
-        if node is not root and _is_skipped(node, tag, skip_tags):
+        if _is_skipped(node, tag, skip_tags):
             yield "skip", node, tag
             continue
         yield "start", node, tag
@@ -158,7 +163,7 @@ def _prose_blocks(root: LexborNode) -> list[str]:
     blocks: list[str] = []
     current: list[str] = []
     collecting = 0
-    prose_blocks = 0
+    opened: list[bool] = []
 
     def flush() -> None:
         text = "".join(current).strip()
@@ -174,18 +179,16 @@ def _prose_blocks(root: LexborNode) -> list[str]:
             if value in _SPLIT_TAGS:
                 flush()
         elif kind == "start":
-            collects = value in PROSE_BLOCK_TAGS or (value == "strong" and not prose_blocks)
+            collects = value in PROSE_BLOCK_TAGS or (value == "strong" and not collecting)
+            opened.append(collects)
             if collects or value in _SPLIT_TAGS:
                 flush()
             if value == "br" and collecting:
                 current.append(" ")
             if collects:
                 collecting += 1
-                prose_blocks += value in PROSE_BLOCK_TAGS
         elif kind == "end":
-            if value in PROSE_BLOCK_TAGS:
-                prose_blocks -= 1
-            collects = value in PROSE_BLOCK_TAGS or (value == "strong" and not prose_blocks)
+            collects = opened.pop()
             if collects:
                 collecting -= 1
             if collects or value in _SPLIT_TAGS:
@@ -203,11 +206,11 @@ def _find_first(root: LexborNode, predicate: Callable[[LexborNode, str], bool]) 
 
 
 def _contains(ancestor: LexborNode, node: LexborNode) -> bool:
-    parent = node.parent
-    while parent is not None:
-        if parent == ancestor:
+    current: LexborNode | None = node
+    while current is not None:
+        if current == ancestor:
             return True
-        parent = parent.parent
+        current = current.parent
     return False
 
 
@@ -258,14 +261,23 @@ def extract_article_html(full_replay_html: str) -> str:
     )
     if markdown is not None:
         title = _find_first(container, lambda _, tag: tag == "h1")
-        if title is not None and not _contains(markdown, title):
-            _strip_chrome(title)
-            parts.append(title.html or "")
-        body = markdown
+        if title is not None and _contains(title, markdown):
+            body = title
+        else:
+            if title is not None and not _contains(markdown, title):
+                if _strip_chrome(title) or title.text(deep=True).strip():
+                    parts.append((title.html or "").strip())
+            body = markdown
+        emit_outer = True
     else:
         body = container
+        emit_outer = False
     if _strip_chrome(body) or body.text(deep=True).strip():
-        parts.append((body.inner_html or "").strip())
+        fragment = ((body.html if emit_outer else body.inner_html) or "").strip()
+        if emit_outer and body.tag in _TABLE_PART_TAGS:
+            fragment = f"<table>{fragment}</table>"
+        if fragment:
+            parts.append(fragment)
     if not parts:
         raise ValueError("Extracted article HTML is empty")
     content = "\n".join(parts)
