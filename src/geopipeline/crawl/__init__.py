@@ -3,6 +3,6 @@
 
 from __future__ import annotations
 
-from geopipeline.crawl.publish import run_comparison, run_offline_demo
+from geopipeline.crawl.publish import build_run, promote, run_offline_demo
 
-__all__ = ["run_comparison", "run_offline_demo"]
+__all__ = ["build_run", "promote", "run_offline_demo"]
