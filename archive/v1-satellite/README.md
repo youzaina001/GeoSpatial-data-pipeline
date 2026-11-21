@@ -10,12 +10,15 @@ checked, and the supported build no longer ships `numpy`, `pyarrow`,
 `rasterio` or Airflow. See
 [ADR 0021](../../docs/adr/0021-archive-the-satellite-example.md).
 
-To run it as it last worked, check out commit `ea030f1`:
+The `run` and `query` CLI commands were removed rather than archived, so the
+code here is not runnable on its own. To run the example as it last worked,
+check out commit `ea030f1` from the repository root, then return:
 
 ```bash
 git switch --detach ea030f1
 make install
 make run query
+git switch -
 ```
 
 - Design decisions: ADRs 0002 to 0015 and 0020 in [`docs/adr/`](../../docs/adr/).
