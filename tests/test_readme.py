@@ -14,15 +14,24 @@ def test_readme_is_short_enough_for_a_first_visit() -> None:
     assert len(README.splitlines()) <= 80
 
 
-def test_readme_relative_links_exist() -> None:
-    for target in re.findall(r"\]\(([^)#]+)(?:#[^)]*)?\)", README):
+def _anchors(markdown: str) -> set[str]:
+    headings = re.findall(r"^#+ (.+)$", markdown, flags=re.MULTILINE)
+    return {re.sub(r"[^a-z0-9 -]", "", h.lower()).replace(" ", "-") for h in headings}
+
+
+def test_readme_relative_links_and_anchors_exist() -> None:
+    for target, anchor in re.findall(r"\]\(([^)#]+)(?:#([^)]*))?\)", README):
         if "://" in target:
             continue
-        assert (REPO / target).exists(), target
+        path = REPO / target
+        assert path.exists(), target
+        if anchor:
+            assert anchor in _anchors(path.read_text()), f"{target}#{anchor}"
 
 
 def test_readme_make_targets_exist() -> None:
     makefile = (REPO / "Makefile").read_text()
     targets = {line.split(":", 1)[0] for line in makefile.splitlines() if re.match(r"^[a-z][\w-]*:", line)}
-    for target in re.findall(r"\bmake ([a-z][\w-]*)", README):
+    code = "\n".join(re.findall(r"```[a-z]*\n(.*?)```", README, flags=re.DOTALL) + re.findall(r"`([^`\n]+)`", README))
+    for target in re.findall(r"\bmake ([a-z][\w-]*)", code):
         assert target in targets, target

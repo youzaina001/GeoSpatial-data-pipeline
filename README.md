@@ -4,7 +4,7 @@
 
 When an AI training corpus is refreshed with a newer crawl of the same site,
 much of what comes back is text the corpus already has. geocrawl compares two
-archived crawls of one documentation site and counts the
+archived samples of one documentation site and counts the
 [new prose](GLOSSARY.md#crawl-freshness) in the later one: wording that appears
 on no page of the earlier crawl, even when a page moved to a new URL.
 
@@ -26,7 +26,8 @@ make check     # tests, Ruff and mypy
 
 `make demo` writes one run per sample under `data/demo/<sample>/runs/`. Each
 run has a public `comparison.json` and a maintainer `run-summary.json`. The
-Cloudflare sample reports 1358 distinct new words across the crawl. A small
+headline figure is `summary.distinct_new_words` in `comparison.json`: 1358
+for the Cloudflare sample. A small
 handwritten sample must report exactly one, or the demo stops before writing.
 
 ## How it works
