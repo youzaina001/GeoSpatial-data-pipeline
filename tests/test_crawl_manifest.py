@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from geopipeline.crawl.manifest import CaptureEntry, SampleManifest, is_allowed_archive_url, load_manifest
-from geopipeline.crawl.matching import match_crawl
+from geocrawl.manifest import CaptureEntry, SampleManifest, is_allowed_archive_url, load_manifest
+from geocrawl.matching import match_crawl
 
 
 _OMIT = object()
