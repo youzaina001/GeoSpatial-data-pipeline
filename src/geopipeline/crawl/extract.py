@@ -79,6 +79,18 @@ BLOCK_BOUNDARY_TAGS = frozenset(
 
 PROSE_SKIP_TAGS = CHROME_TAGS | frozenset({"pre"})
 
+# HTML omitted end tags: opening the key closes an open sibling, unless a scope element
+# (the list or table that holds it) sits between them. Any block also closes an open <p>.
+_LIST_SCOPE = frozenset({"ul", "ol", "dl", "table"})
+_IMPLIED_END: dict[str, tuple[frozenset[str], frozenset[str]]] = {
+    "li": (frozenset({"li"}), _LIST_SCOPE),
+    "dt": (frozenset({"dt", "dd"}), _LIST_SCOPE),
+    "dd": (frozenset({"dt", "dd"}), _LIST_SCOPE),
+    "td": (frozenset({"td", "th"}), frozenset({"tr", "table"})),
+    "th": (frozenset({"td", "th"}), frozenset({"tr", "table"})),
+    "tr": (frozenset({"tr", "td", "th"}), frozenset({"thead", "tbody", "tfoot", "table"})),
+}
+
 SENTENCE_SPLIT_RE = re.compile(
     r"(?:(?<=[.!?])|(?<=[.!?][\"'\u201d\u2019)\]]))"
     r"(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\betc\.)\s+"
@@ -317,13 +329,35 @@ class _ProseBlockCollector(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self._skip_stack: list[str] = []
-        self._block_depth = 0
-        self._headline_depth = 0
+        # Open elements as (tag, collects). Popping to an end tag closes every block opened
+        # inside it, so an omitted </li> or </p> never leaks past its list or container.
+        self._open_elements: list[tuple[str, bool]] = []
         self._current: list[str] = []
         self.blocks: list[str] = []
 
     def _collecting(self) -> bool:
-        return self._block_depth > 0 or self._headline_depth > 0
+        return any(collects for _, collects in self._open_elements)
+
+    def _in_block(self) -> bool:
+        return any(tag in PROSE_BLOCK_TAGS for tag, _ in self._open_elements)
+
+    def _close_to(self, index: int) -> None:
+        if any(collects for _, collects in self._open_elements[index:]):
+            self._flush()
+        del self._open_elements[index:]
+
+    def _close_implied(self, tag: str) -> None:
+        """Apply the HTML rules for omitted end tags before ``tag`` opens."""
+        siblings, scope = _IMPLIED_END.get(tag, (frozenset(), frozenset()))
+        target = None
+        for idx in range(len(self._open_elements) - 1, -1, -1):
+            open_tag = self._open_elements[idx][0]
+            if open_tag in siblings or (open_tag == "p" and tag in BLOCK_BOUNDARY_TAGS):
+                target = idx
+            elif open_tag in scope or open_tag in PROSE_BLOCK_TAGS:
+                break
+        if target is not None:
+            self._close_to(target)
 
     def _flush(self) -> None:
         if self._current:
@@ -337,14 +371,17 @@ class _ProseBlockCollector(HTMLParser):
             if self._collecting():
                 self._current.append(" ")
             return
+        self._close_implied(tag)
         if tag in PROSE_BLOCK_TAGS:
             self._flush()
-            self._block_depth += 1
-        elif tag == "strong" and self._block_depth == 0:
+            self._open_elements.append((tag, True))
+        elif tag == "strong" and not self._in_block():
             self._flush()
-            self._headline_depth += 1
-        elif tag in BLOCK_BOUNDARY_TAGS:
-            self._flush()
+            self._open_elements.append((tag, True))
+        else:
+            if tag in BLOCK_BOUNDARY_TAGS:
+                self._flush()
+            self._open_elements.append((tag, False))
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if self._skip_stack:
@@ -369,14 +406,12 @@ class _ProseBlockCollector(HTMLParser):
         if self._skip_stack:
             _pop_matching(self._skip_stack, tag)
             return
-        if tag in PROSE_BLOCK_TAGS and self._block_depth > 0:
+        if tag in BLOCK_BOUNDARY_TAGS:
             self._flush()
-            self._block_depth -= 1
-        elif tag == "strong" and self._headline_depth > 0 and self._block_depth == 0:
-            self._flush()
-            self._headline_depth -= 1
-        elif tag in BLOCK_BOUNDARY_TAGS:
-            self._flush()
+        for idx in range(len(self._open_elements) - 1, -1, -1):
+            if self._open_elements[idx][0] == tag:
+                self._close_to(idx)
+                return
 
     def handle_data(self, data: str) -> None:
         if not self._skip_stack and self._collecting():

@@ -209,3 +209,13 @@ def test_title_selection_skips_a_heading_inside_navigation() -> None:
     )
     sentences = [s.normalized_text for s in extract_sentences(extract_article_html(replay))]
     assert sentences == ["real title", "body"]
+
+
+def test_omitted_end_tags_close_blocks_like_html_does() -> None:
+    # AGY round 3: an unclosed <li> or <p> kept collecting the link that followed the block.
+    items = "<article><ul><li>First item<li>Second item</ul><a href='/rss.xml'>Subscribe</a></article>"
+    paras = "<article><p>First para<p>Second para<div><a href='/rss.xml'>Subscribe</a></div></article>"
+    rows = "<article><table><tr><td>One<td>Two</table><a href='/rss.xml'>Subscribe</a></article>"
+    assert [s.normalized_text for s in extract_sentences(items)] == ["first item", "second item"]
+    assert [s.normalized_text for s in extract_sentences(paras)] == ["first para", "second para"]
+    assert [s.normalized_text for s in extract_sentences(rows)] == ["one", "two"]
