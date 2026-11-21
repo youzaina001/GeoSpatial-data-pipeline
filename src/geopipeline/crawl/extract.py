@@ -79,16 +79,43 @@ BLOCK_BOUNDARY_TAGS = frozenset(
 
 PROSE_SKIP_TAGS = CHROME_TAGS | frozenset({"pre"})
 
-# HTML omitted end tags: opening the key closes an open sibling, unless a scope element
-# (the list or table that holds it) sits between them. Any block also closes an open <p>.
-_LIST_SCOPE = frozenset({"ul", "ol", "dl", "table"})
-_IMPLIED_END: dict[str, tuple[frozenset[str], frozenset[str]]] = {
-    "li": (frozenset({"li"}), _LIST_SCOPE),
-    "dt": (frozenset({"dt", "dd"}), _LIST_SCOPE),
-    "dd": (frozenset({"dt", "dd"}), _LIST_SCOPE),
-    "td": (frozenset({"td", "th"}), frozenset({"tr", "table"})),
-    "th": (frozenset({"td", "th"}), frozenset({"tr", "table"})),
-    "tr": (frozenset({"tr", "td", "th"}), frozenset({"thead", "tbody", "tfoot", "table"})),
+# Omitted end tags follow the HTML tree-building rules that matter for prose.
+# Opening any of these closes an open <p>.
+_P_CLOSERS = frozenset(
+    {
+        "address", "article", "aside", "blockquote", "center", "details", "dialog", "dir",
+        "div", "dl", "dd", "dt", "fieldset", "figcaption", "figure", "footer", "form",
+        "h1", "h2", "h3", "h4", "h5", "h6", "header", "hgroup", "hr", "li", "listing",
+        "main", "menu", "nav", "ol", "p", "pre", "section", "summary", "table", "ul", "xmp",
+    }
+)
+# Structural elements. An end tag for any other (inline) element stops at one of these
+# and is ignored, so </span> never closes the <p> it wraps.
+_SPECIAL_TAGS = _P_CLOSERS | HIDDEN_TAGS | frozenset(
+    {
+        "body", "button", "caption", "html", "select",
+        "table", "tbody", "td", "tfoot", "th", "thead", "tr",
+    }
+)
+# No implied or end-tag closing reaches past these.
+_SCOPE_TAGS = frozenset({"button", "caption", "html", "table", "td", "template", "th"})
+_TABLE_SECTION = frozenset({"thead", "tbody", "tfoot"})
+_TABLE_PARTS = _TABLE_SECTION | frozenset({"caption", "table", "td", "th", "tr"})
+# Opening the key closes an open sibling. List items stop at a structural element other
+# than address, div and p. Table parts stop at the element that holds them.
+_LIST_SIBLINGS: dict[str, frozenset[str]] = {
+    "li": frozenset({"li"}),
+    "dt": frozenset({"dt", "dd"}),
+    "dd": frozenset({"dt", "dd"}),
+}
+_TABLE_SIBLINGS: dict[str, tuple[frozenset[str], frozenset[str]]] = {
+    "td": (frozenset({"td", "th"}), frozenset({"tr", "table", "template"})),
+    "th": (frozenset({"td", "th"}), frozenset({"tr", "table", "template"})),
+    "tr": (frozenset({"tr", "td", "th"}), _TABLE_SECTION | {"table", "template"}),
+    **{
+        section: (_TABLE_SECTION | {"tr", "td", "th", "caption"}, frozenset({"table", "template"}))
+        for section in _TABLE_SECTION
+    },
 }
 
 SENTENCE_SPLIT_RE = re.compile(
@@ -318,46 +345,34 @@ def extract_article_html(full_replay_html: str) -> str:
     return f"<article>\n{content}\n</article>\n"
 
 
+@dataclass(frozen=True, slots=True)
+class _Open:
+    tag: str
+    collects: bool
+    skipped: bool
+    block: bool
+
+
 class _ProseBlockCollector(HTMLParser):
     """Collect visible prose blocks (ADR 0018).
 
     Text counts only inside a prose block or a <strong> outside any prose block.
     Hidden content, UI controls, chrome and <pre> code blocks are skipped. <br> is a
     space. convert_charrefs=True decodes character references exactly once.
+
+    One stack holds every open element, skipped or not, so omitted end tags close as
+    HTML closes them. Counters keep each tag linear in the page size.
     """
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self._skip_stack: list[str] = []
-        # Open elements as (tag, collects). Popping to an end tag closes every block opened
-        # inside it, so an omitted </li> or </p> never leaks past its list or container.
-        self._open_elements: list[tuple[str, bool]] = []
+        self._stack: list[_Open] = []
+        self._tag_counts: dict[str, int] = {}
+        self._collecting = 0
+        self._skipping = 0
+        self._blocks = 0
         self._current: list[str] = []
         self.blocks: list[str] = []
-
-    def _collecting(self) -> bool:
-        return any(collects for _, collects in self._open_elements)
-
-    def _in_block(self) -> bool:
-        return any(tag in PROSE_BLOCK_TAGS for tag, _ in self._open_elements)
-
-    def _close_to(self, index: int) -> None:
-        if any(collects for _, collects in self._open_elements[index:]):
-            self._flush()
-        del self._open_elements[index:]
-
-    def _close_implied(self, tag: str) -> None:
-        """Apply the HTML rules for omitted end tags before ``tag`` opens."""
-        siblings, scope = _IMPLIED_END.get(tag, (frozenset(), frozenset()))
-        target = None
-        for idx in range(len(self._open_elements) - 1, -1, -1):
-            open_tag = self._open_elements[idx][0]
-            if open_tag in siblings or (open_tag == "p" and tag in BLOCK_BOUNDARY_TAGS):
-                target = idx
-            elif open_tag in scope or open_tag in PROSE_BLOCK_TAGS:
-                break
-        if target is not None:
-            self._close_to(target)
 
     def _flush(self) -> None:
         if self._current:
@@ -366,55 +381,111 @@ class _ProseBlockCollector(HTMLParser):
                 self.blocks.append(text)
             self._current.clear()
 
-    def _open(self, tag: str) -> None:
-        if tag == "br":
-            if self._collecting():
-                self._current.append(" ")
-            return
+    def _count(self, entry: _Open, step: int) -> None:
+        self._tag_counts[entry.tag] = self._tag_counts.get(entry.tag, 0) + step
+        self._collecting += step * entry.collects
+        self._skipping += step * entry.skipped
+        self._blocks += step * entry.block
+
+    def _push(self, entry: _Open) -> None:
+        self._stack.append(entry)
+        self._count(entry, 1)
+
+    def _close_to(self, index: int) -> None:
+        popped = self._stack[index:]
+        del self._stack[index:]
+        if any(entry.collects for entry in popped):
+            self._flush()
+        for entry in popped:
+            self._count(entry, -1)
+
+    def _is_open(self, tags: frozenset[str]) -> bool:
+        return any(self._tag_counts.get(tag, 0) for tag in tags)
+
+    def _close_implied(self, tag: str) -> None:
+        """Apply the HTML rules for omitted end tags before ``tag`` opens."""
+        if tag in _P_CLOSERS and self._tag_counts.get("p"):
+            for idx in range(len(self._stack) - 1, -1, -1):
+                open_tag = self._stack[idx].tag
+                if open_tag == "p":
+                    self._close_to(idx)
+                    break
+                if open_tag in _SCOPE_TAGS:
+                    break
+        siblings = _LIST_SIBLINGS.get(tag)
+        if siblings is not None and self._is_open(siblings):
+            for idx in range(len(self._stack) - 1, -1, -1):
+                open_tag = self._stack[idx].tag
+                if open_tag in siblings:
+                    self._close_to(idx)
+                    return
+                if open_tag in _SPECIAL_TAGS and open_tag not in {"address", "div", "p"}:
+                    return
+        table = _TABLE_SIBLINGS.get(tag)
+        if table is not None and self._is_open(table[0]):
+            table_siblings, scope = table
+            target = None
+            for idx in range(len(self._stack) - 1, -1, -1):
+                open_tag = self._stack[idx].tag
+                if open_tag in scope:
+                    break
+                if open_tag in table_siblings:
+                    target = idx
+            if target is not None:
+                self._close_to(target)
+
+    def _void(self, tag: str) -> None:
         self._close_implied(tag)
-        if tag in PROSE_BLOCK_TAGS:
+        if self._skipping:
+            return
+        if tag == "br":
+            if self._collecting:
+                self._current.append(" ")
+        elif tag in BLOCK_BOUNDARY_TAGS:
             self._flush()
-            self._open_elements.append((tag, True))
-        elif tag == "strong" and not self._in_block():
-            self._flush()
-            self._open_elements.append((tag, True))
-        else:
-            if tag in BLOCK_BOUNDARY_TAGS:
-                self._flush()
-            self._open_elements.append((tag, False))
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if self._skip_stack:
-            if tag not in VOID_TAGS:
-                self._skip_stack.append(tag)
+        if tag in VOID_TAGS:
+            self._void(tag)
             return
-        if _is_skipped_element(tag, attrs, skip_tags=PROSE_SKIP_TAGS):
-            if tag not in VOID_TAGS:
-                self._skip_stack.append(tag)
-            return
-        self._open(tag)
+        self._close_implied(tag)
+        skipped = _is_skipped_element(tag, attrs, skip_tags=PROSE_SKIP_TAGS)
+        collects = False
+        if not self._skipping and not skipped:
+            if tag in PROSE_BLOCK_TAGS or (tag == "strong" and not self._blocks):
+                self._flush()
+                collects = True
+            elif tag in BLOCK_BOUNDARY_TAGS:
+                self._flush()
+        self._push(_Open(tag, collects, skipped, collects and tag in PROSE_BLOCK_TAGS))
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if self._skip_stack or _is_skipped_element(tag, attrs, skip_tags=PROSE_SKIP_TAGS):
-            return
-        if tag == "br":
-            self._open(tag)
+        if tag in VOID_TAGS:
+            self._void(tag)
 
     def handle_endtag(self, tag: str) -> None:
         if tag in VOID_TAGS:
             return
-        if self._skip_stack:
-            _pop_matching(self._skip_stack, tag)
-            return
-        if tag in BLOCK_BOUNDARY_TAGS:
+        if tag in BLOCK_BOUNDARY_TAGS and not self._skipping:
             self._flush()
-        for idx in range(len(self._open_elements) - 1, -1, -1):
-            if self._open_elements[idx][0] == tag:
+        if not self._tag_counts.get(tag):
+            return
+        if tag not in _SPECIAL_TAGS:
+            stop = _SPECIAL_TAGS
+        elif tag in _TABLE_PARTS:
+            stop = frozenset({"html", "table", "template"})
+        else:
+            stop = _SCOPE_TAGS
+        for idx in range(len(self._stack) - 1, -1, -1):
+            open_tag = self._stack[idx].tag
+            if open_tag == tag:
                 self._close_to(idx)
+                return
+            if open_tag in stop:
                 return
 
     def handle_data(self, data: str) -> None:
-        if not self._skip_stack and self._collecting():
+        if not self._skipping and self._collecting:
             self._current.append(data)
 
     def finalize(self) -> list[str]:

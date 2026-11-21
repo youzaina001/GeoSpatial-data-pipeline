@@ -219,3 +219,55 @@ def test_omitted_end_tags_close_blocks_like_html_does() -> None:
     assert [s.normalized_text for s in extract_sentences(items)] == ["first item", "second item"]
     assert [s.normalized_text for s in extract_sentences(paras)] == ["first para", "second para"]
     assert [s.normalized_text for s in extract_sentences(rows)] == ["one", "two"]
+
+
+def _article_texts(html: str) -> list[str]:
+    return [s.normalized_text for s in extract_sentences(f"<article>{html}</article>")]
+
+
+def test_an_inline_end_tag_never_closes_the_block_inside_it() -> None:
+    # Round 4 reviews: </span> or </a> closed the <p> or <h2> it wrapped and dropped prose.
+    assert _article_texts("<span><p>First </span>second.</p>") == ["first second"]
+    assert _article_texts("<span><p>First sentence.</span> Second sentence.</p>") == [
+        "first sentence",
+        "second sentence",
+    ]
+    assert _article_texts("<a href='/guide'><h2>Title</a> suffix</h2>") == ["title suffix"]
+
+
+def test_skipped_blocks_and_rules_close_an_open_paragraph() -> None:
+    link = "<a href='/rss.xml'>Subscribe</a>"
+    assert _article_texts(f"<p>Alpha<pre>code</pre>{link}") == ["alpha"]
+    assert _article_texts(f"<p>Alpha<nav><a href='/'>Home</a></nav>{link}") == ["alpha"]
+    assert _article_texts(f"<p>Alpha<div hidden>Draft</div>{link}") == ["alpha"]
+    assert _article_texts(f"<p>Alpha<aside>Aside</aside>{link}") == ["alpha"]
+    assert _article_texts(f"<p>Alpha<details>{link}</details>") == ["alpha"]
+    assert _article_texts(f"<p>Alpha<hr/>{link}") == ["alpha"]
+    assert _article_texts("<p>Alpha<pre>code</pre><strong>Changelog title</strong>") == [
+        "alpha",
+        "changelog title",
+    ]
+
+
+def test_a_hidden_list_item_without_an_end_tag_hides_only_itself() -> None:
+    assert _article_texts("<ul><li hidden>Secret<li>Visible item</ul><p>Later prose</p>") == [
+        "visible item",
+        "later prose",
+    ]
+
+
+def test_a_new_table_section_closes_the_open_header_cell() -> None:
+    html = "<table><thead><tr><th>Name<tbody><tr><td>Alice</td></tr></tbody><div>Loose</div></table>"
+    assert _article_texts(html) == ["name", "alice"]
+    footer = "<table><thead><tr><th>Head<tbody><tr><td>Cell</td></tr></tbody><tfoot><tr><a>Sub</a></tr></tfoot></table>"
+    assert _article_texts(footer) == ["head", "cell"]
+
+
+def test_many_images_in_one_paragraph_extract_in_linear_time() -> None:
+    # Codex round 4: void elements stayed on the open-element stack, so this was quadratic.
+    from time import perf_counter
+
+    html = "<p>First " + '<img src="x">' * 20000 + "last.</p>"
+    start = perf_counter()
+    assert _article_texts(html) == ["first last"]
+    assert perf_counter() - start < 1.0

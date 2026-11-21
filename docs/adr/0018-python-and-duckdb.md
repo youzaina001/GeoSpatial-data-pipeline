@@ -24,7 +24,7 @@ Text outside those blocks, such as a bare link styled as a button, is not prose.
 * UI controls: `<button>`, `<label>`, `<select>`, `<option>`, `<input>`, `<form>` and `<nav>`, plus screen reader only text;
 * `<pre>` code blocks. Inline `<code>` inside a prose block stays.
 
-An omitted end tag closes as it does in HTML: a new list item or table cell ends the previous one, any block ends an open paragraph, and closing a list or container ends every block inside it. A `<br>` inside a block is a space. Character references are decoded once, so `&amp;nbsp;` stays the visible text `&nbsp;`. The same rules select the `<main>` or `<article>` element from a full replay page, so a `<main>` inside a `<template>` is never chosen.
+An omitted end tag closes as it does in HTML: a new list item, table cell, row or table section ends the previous one, any block, including a dropped one such as `<pre>`, `<nav>` or a hidden `<div>`, ends an open paragraph, and closing a list or container ends every block inside it. An end tag for an inline element, such as `</span>`, never closes a block it wraps. A `<br>` inside a block is a space. Character references are decoded once, so `&amp;nbsp;` stays the visible text `&nbsp;`. The same rules select the `<main>` or `<article>` element from a full replay page, so a `<main>` inside a `<template>` is never chosen.
 
 Python splits each block into sentences at `.`, `!` or `?` followed by optional closing quotes or brackets and a space. Common abbreviations such as "e.g." do not end a sentence. Python lowercases each sentence and splits it into words. Contractions, hyphenated words and dotted or underscored technical identifiers (such as `robots.txt`) stay single words.
 
