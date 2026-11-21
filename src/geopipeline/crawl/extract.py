@@ -165,7 +165,7 @@ class _SubtreeExtractor(HTMLParser):
                 if tag not in VOID_TAGS:
                     self._ignore_stack.append(tag)
                 return
-            if tag in HIDDEN_TAGS or _is_hidden(attrs):
+            if _is_skipped_element(tag, attrs, skip_tags=HIDDEN_TAGS):
                 if tag not in VOID_TAGS:
                     self._ignore_stack.append(tag)
                 return

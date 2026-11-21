@@ -179,3 +179,13 @@ def test_article_selection_skips_hidden_main_and_main_inside_hidden_ancestors() 
     )
     sentences = [s.normalized_text for s in extract_sentences(extract_article_html(replay))]
     assert sentences == ["visible article"]
+
+
+def test_article_selection_skips_screen_reader_only_and_wayback_chrome_containers() -> None:
+    replay = (
+        '<main class="sr-only"><p>Draft prose.</p></main>'
+        '<div id="wm-ipp-base"><main><p>Toolbar prose.</p></main></div>'
+        "<main><p>Visible article.</p></main>"
+    )
+    sentences = [s.normalized_text for s in extract_sentences(extract_article_html(replay))]
+    assert sentences == ["visible article"]
