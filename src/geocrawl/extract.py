@@ -257,30 +257,176 @@ def _strip_chrome(root: LexborNode) -> bool:
     return bool(root.text(deep=True).strip())
 
 
-def _p_ancestor_in_scope(table: LexborNode, boundary: LexborNode | None) -> LexborNode | None:
+_RAW_SHELL_SKIP_TAGS = frozenset(
+    {
+        "plaintext", "xmp", "script", "style", "textarea", "title", "iframe",
+        "noscript", "noembed", "noframes", "frameset", "html", "head", "body",
+    }
+)
+
+
+def _p_ancestor_in_scope(
+    table: LexborNode,
+    boundary: LexborNode | None,
+    cache: dict[int, LexborNode | None] | None = None,
+) -> LexborNode | None:
+    path: list[int] = []
+    result: LexborNode | None = None
+    boundary_id = boundary.mem_id if boundary is not None else None
     current = table.parent
-    while current is not None and current != boundary:
+    while current is not None and current.mem_id != boundary_id:
+        current_id = current.mem_id
+        if cache is not None and current_id in cache:
+            result = cache[current_id]
+            break
+        path.append(current_id)
         if current.tag == "p":
-            return current
+            result = current
+            break
         if current.tag in _P_SCOPE_BARRIERS:
-            return None
+            result = None
+            break
         current = current.parent
-    return None
+    if cache is not None:
+        for node_id in path:
+            cache[node_id] = result
+    return result
 
 
-def _new_empty_element_after(anchor: LexborNode, source: LexborNode) -> LexborNode:
-    tag = source.tag or "span"
-    shell_body = LexborHTMLParser(f"<!doctype html><{tag}></{tag}>").body
-    if shell_body is None or shell_body.first_child is None:
-        shell_body = LexborHTMLParser("<!doctype html><span></span>").body
-        assert shell_body is not None and shell_body.first_child is not None
-    anchor.insert_after(shell_body.first_child)
-    tail = anchor.next
-    assert tail is not None
-    for name, value in source.attributes.items():
-        if name != "id":
-            tail.attrs[name] = "" if value is None else value
-    return tail
+def _build_shell_templates(tags: set[str]) -> tuple[LexborHTMLParser, dict[str, LexborNode]]:
+    """Build reusable empty shell elements for wrapper tags in one parser call."""
+    # Keep <span> first so a guaranteed fallback shell exists even if an unexpected tag drops.
+    ordered_tags = ["span", *(sorted(t for t in tags if t != "span" and t not in _RAW_SHELL_SKIP_TAGS))]
+    fragments = "".join(f"<div><{tag}></{tag}></div>" for tag in ordered_tags)
+    shell_doc = LexborHTMLParser(f"<!doctype html>{fragments}")
+    shells: dict[str, LexborNode] = {}
+    body = shell_doc.body
+    wrapper = body.first_child if body is not None else None
+    for tag in ordered_tags:
+        if wrapper is None:
+            break
+        child = wrapper.first_child
+        if child is not None and child.tag == tag:
+            shells[tag] = child
+        wrapper = wrapper.next
+    return shell_doc, shells
+
+
+def _copy_non_id_attrs(
+    source: LexborNode,
+    target: LexborNode,
+    attrs_cache: dict[int, tuple[tuple[str, str], ...]],
+) -> None:
+    source_id = source.mem_id
+    attrs = attrs_cache.get(source_id)
+    if attrs is None:
+        attrs = tuple(
+            (name, "" if value is None else value)
+            for name, value in source.attributes.items()
+            if name != "id"
+        )
+        attrs_cache[source_id] = attrs
+    for name, value in attrs:
+        target.attrs[name] = value
+
+
+def _split_p_scope(
+    p_ancestor: LexborNode,
+    hoisted_tables: set[int],
+    split_nodes: set[int],
+    seen_p: set[int],
+    shells: dict[str, LexborNode],
+    attrs_cache: dict[int, tuple[tuple[str, str], ...]],
+    capture_top_nodes: bool,
+) -> list[LexborNode]:
+    """Split one ``<p>`` scope in a single iterative walk around its hoisted tables."""
+    ancestors: list[LexborNode] = []
+    active: list[LexborNode | None] = []
+    used: set[int] = set()
+    last_top: LexborNode | None = None
+    top_nodes: list[LexborNode] = []
+
+    def ensure_active() -> LexborNode:
+        nonlocal last_top
+        assert active
+        if (current := active[-1]) is not None:
+            return current
+        start = len(active)
+        while start > 0 and active[start - 1] is None:
+            start -= 1
+        for i in range(start, len(ancestors)):
+            anc = ancestors[i]
+            anc_id = anc.mem_id
+            if anc_id not in used:
+                used.add(anc_id)
+                if i == 0:
+                    last_top = anc
+                    if capture_top_nodes:
+                        top_nodes.append(anc)
+                else:
+                    parent_out = active[i - 1]
+                    assert parent_out is not None
+                    anc_parent = anc.parent
+                    if anc_parent is None or anc_parent.mem_id != parent_out.mem_id:
+                        parent_out.insert_child(anc, move=True)
+                active[i] = anc
+            else:
+                shell = shells.get(anc.tag or "span", shells["span"])
+                if i == 0:
+                    assert last_top is not None
+                    last_top.insert_after(shell)
+                    tail = last_top.next
+                    assert tail is not None
+                    last_top = tail
+                    if capture_top_nodes:
+                        top_nodes.append(tail)
+                else:
+                    parent_out = active[i - 1]
+                    assert parent_out is not None
+                    parent_out.insert_child(shell)
+                    tail = parent_out.last_child
+                    assert tail is not None
+                _copy_non_id_attrs(anc, tail, attrs_cache)
+                active[i] = tail
+        assert active[-1] is not None
+        return active[-1]
+
+    stack: list[tuple[str, LexborNode]] = [("enter", p_ancestor)]
+    while stack:
+        kind, node = stack.pop()
+        if kind == "exit":
+            ancestors.pop()
+            active.pop()
+            if node.mem_id not in used:
+                node.decompose()
+            continue
+        if kind == "enter":
+            ancestors.append(node)
+            active.append(None)
+            stack.append(("exit", node))
+            children = _children(node)
+            stack.extend(("visit", child) for child in reversed(children))
+            continue
+        node_id = node.mem_id
+        if node_id in hoisted_tables:
+            if last_top is None:
+                p_ancestor.insert_before(node, move=True)
+            else:
+                last_top.insert_after(node, move=True)
+                last_top = node
+            if capture_top_nodes:
+                top_nodes.append(node)
+            for i in range(len(active)):
+                active[i] = None
+        elif node_id in split_nodes and node_id not in seen_p:
+            stack.append(("enter", node))
+        else:
+            target = ensure_active()
+            node_parent = node.parent
+            if node_parent is None or node_parent.mem_id != target.mem_id:
+                target.insert_child(node, move=True)
+
+    return top_nodes
 
 
 def _split_quirks_tables(root: LexborNode) -> list[LexborNode]:
@@ -292,48 +438,70 @@ def _split_quirks_tables(root: LexborNode) -> list[LexborNode]:
     trailing prose after it.
     """
     boundary = root.parent
-    top_nodes: list[LexborNode] = [root]
+    boundary_id = boundary.mem_id if boundary is not None else None
+    root_id = root.mem_id
     tables: list[LexborNode] = []
     stack: list[LexborNode] = [root]
     while stack:
         node = stack.pop()
         if node.is_element_node:
-            if node.tag == "table":
+            if node.tag == "table" and node.mem_id != root_id:
                 tables.append(node)
             child = node.last_child
             while child is not None:
                 stack.append(child)
                 child = child.prev
 
+    if not tables:
+        return [root]
+
+    p_scope_cache: dict[int, LexborNode | None] = {}
+    hoisted_tables: set[int] = set()
+    split_nodes: set[int] = set()
+    p_ancestors: list[LexborNode] = []
+    seen_p: set[int] = set()
+    needed_tags: set[str] = set()
+
     for table in tables:
-        p_ancestor = _p_ancestor_in_scope(table, boundary)
+        p_ancestor = _p_ancestor_in_scope(table, boundary, p_scope_cache)
         if p_ancestor is None:
             continue
-        while True:
-            parent = table.parent
-            if parent is None:
+        hoisted_tables.add(table.mem_id)
+        p_ancestor_id = p_ancestor.mem_id
+        if p_ancestor_id not in seen_p:
+            seen_p.add(p_ancestor_id)
+            p_ancestors.append(p_ancestor)
+        current: LexborNode | None = table.parent
+        while current is not None and current.mem_id != boundary_id:
+            current_id = current.mem_id
+            if current_id in split_nodes:
                 break
-            trailing: list[LexborNode] = []
-            sibling = table.next
-            while sibling is not None:
-                trailing.append(sibling)
-                sibling = sibling.next
-            parent.insert_after(table, move=True)
-            tail = _new_empty_element_after(table, parent) if trailing else None
-            if tail is not None:
-                for node in trailing:
-                    tail.insert_child(node, move=True)
-            if parent in top_nodes:
-                idx = top_nodes.index(parent)
-                inserted = [table] + ([tail] if tail is not None else [])
-                top_nodes[idx + 1 : idx + 1] = inserted
-            reached_p = parent == p_ancestor
-            if parent.first_child is None:
-                if parent in top_nodes:
-                    top_nodes.remove(parent)
-                parent.decompose()
-            if reached_p:
+            split_nodes.add(current_id)
+            needed_tags.add(current.tag or "span")
+            if current_id == p_ancestor_id:
                 break
+            current = current.parent
+
+    if not hoisted_tables:
+        return [root]
+
+    shell_doc, shells = _build_shell_templates(needed_tags)
+    attrs_cache: dict[int, tuple[tuple[str, str], ...]] = {}
+    top_nodes: list[LexborNode] = [root]
+    for p_ancestor in p_ancestors:
+        is_root_p = p_ancestor.mem_id == root_id
+        split_out = _split_p_scope(
+            p_ancestor,
+            hoisted_tables,
+            split_nodes,
+            seen_p,
+            shells,
+            attrs_cache,
+            capture_top_nodes=is_root_p,
+        )
+        if is_root_p:
+            top_nodes = split_out
+    del shell_doc
     return top_nodes
 
 
