@@ -17,7 +17,7 @@ bundled fixtures, with no cloud account or credentials.
 You need Python 3.12 or newer, [uv](https://docs.astral.sh/uv/) and Make.
 
 ```bash
-git clone https://github.com/youzaina001/GeoSpatial-data-pipeline.git geocrawl
+git clone https://github.com/youzaina001/geocrawl.git
 cd geocrawl
 make install   # pinned dependencies and dev tools
 make demo      # compare the bundled samples
@@ -56,7 +56,7 @@ Google Chrome are installed to verify the explorer end-to-end.
 The static explorer is live under `explorer/` (`make preview` serves it locally).
 Next is adding the remaining 11 archived page pairs for Cloudflare AI Crawl
 Control. Open work is tracked in
-[GitHub Issues](https://github.com/youzaina001/GeoSpatial-data-pipeline/issues).
+[GitHub Issues](https://github.com/youzaina001/geocrawl/issues).
 
 ## Repository map
 
