@@ -348,9 +348,14 @@ def _split_p_scope(
 
     def ensure_active() -> LexborNode:
         nonlocal last_top
-        for i, anc in enumerate(ancestors):
-            if active[i] is not None:
-                continue
+        assert active
+        if (current := active[-1]) is not None:
+            return current
+        start = len(active)
+        while start > 0 and active[start - 1] is None:
+            start -= 1
+        for i in range(start, len(ancestors)):
+            anc = ancestors[i]
             anc_id = anc.mem_id
             if anc_id not in used:
                 used.add(anc_id)

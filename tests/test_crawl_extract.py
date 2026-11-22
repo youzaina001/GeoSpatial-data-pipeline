@@ -543,6 +543,7 @@ def test_quirks_table_hoisting_edge_wrappers_and_barriers() -> None:
     article = extract_article_html(html)
     assert article.count('id="p1"') <= 1
     assert article.count('id="s1"') <= 1
+    assert article.count('class="hl"') == 2
     assert _texts(article) == ["t1", "a", "t2", "t3", "b", "t4"]
 
     # Non-chrome _P_SCOPE_BARRIERS inside <p>: outer table hoists out of <p>, while inner table
@@ -579,6 +580,68 @@ def test_quirks_table_hoisting_edge_wrappers_and_barriers() -> None:
     assert nested_p_doc.css_first("p table") is None
     assert nested_p_doc.css_first("td > p#ip") is not None
     assert nested_p_doc.css_first("td > table") is not None
+
+
+def test_quirks_table_hoisting_root_paragraph_and_whitespace_shells() -> None:
+    # When sl-markdown-content is nested inside <p>, _serialize_element runs _split_quirks_tables
+    # with root=<p> directly.
+    root_p_html = (
+        '<main><p id="p1" class="lead"><span class="sl-markdown-content">'
+        "<table><tr><td>t0</td></tr></table>"
+        "lead"
+        "<table><tr><td>t1</td></tr></table>"
+        "<table><tr><td>t2</td></tr></table>"
+        "tail"
+        "</span></p></main>"
+    )
+    root_p_article = extract_article_html(root_p_html)
+    assert root_p_article.count('id="p1"') <= 1
+    assert root_p_article.count('class="lead"') == 2
+    assert root_p_article.count('class="sl-markdown-content"') == 2
+    assert _texts(root_p_article) == ["t0", "lead", "t1", "t2", "tail"]
+
+    root_p_doc = extract.LexborHTMLParser("<!doctype html>" + root_p_article)
+    article_node = root_p_doc.css_first("article")
+    assert article_node is not None
+    top_tags = [
+        child.tag
+        for child in extract._children(article_node)
+        if child.is_element_node
+    ]
+    assert top_tags == ["table", "p", "table", "table", "p"]
+
+    # When root=<p> holds only hoisted tables, the empty <p> is decomposed completely.
+    only_tables_html = (
+        '<main><p id="p1" class="lead"><span class="sl-markdown-content">'
+        "<table><tr><td>t1</td></tr></table><table><tr><td>t2</td></tr></table>"
+        "</span></p></main>"
+    )
+    only_tables_article = extract_article_html(only_tables_html)
+    assert 'id="p1"' not in only_tables_article
+    assert "<p" not in only_tables_article
+    assert _texts(only_tables_article) == ["t1", "t2"]
+
+    # Whitespace-only sibling/split shells preserve spacing and document order around tables.
+    spaced = "<main><p><span>a</span><span> </span><span>b</span><table><tr><td>x</td></tr></table></p></main>"
+    assert _texts(spaced) == ["a b", "x"]
+
+    ws_between = "<main><p><span>a</span><span> </span><table><tr><td>x</td></tr></table><span>b</span></p></main>"
+    ws_between_article = extract_article_html(ws_between)
+    assert _texts(ws_between_article) == ["a", "x", "b"]
+    ws_doc = extract.LexborHTMLParser("<!doctype html>" + ws_between_article)
+    ws_article_node = ws_doc.css_first("article")
+    assert ws_article_node is not None
+    assert [
+        c.tag for c in extract._children(ws_article_node) if c.is_element_node
+    ] == ["p", "table", "p"]
+
+    ws_split_shell = (
+        '<main><p><span>a</span><span class="sp"> <table><tr><td>x</td></tr></table> </span>'
+        "<span>b</span></p></main>"
+    )
+    ws_split_article = extract_article_html(ws_split_shell)
+    assert ws_split_article.count('class="sp"') == 2
+    assert _texts(ws_split_article) == ["a", "x", "b"]
 
 
 def test_hidden_html_root_drops_all_prose_and_replay_containers() -> None:
