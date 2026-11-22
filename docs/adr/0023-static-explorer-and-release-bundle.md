@@ -4,7 +4,7 @@ Portfolio visitors browse the published comparison in a zero-build static explor
 
 ## Zero-build static explorer
 
-The explorer lives under `explorer/` (`index.html`, `styles.css`, `app.js`, and a DOM-free ES module `lib.js`). Picking plain HTML, CSS, and vanilla ES modules over a bundler toolchain (such as Vite or Astro) keeps `geocrawl` a single `uv` install with no `npm` build step and zero external CDN stylesheets, scripts, or web fonts.
+The explorer lives under `explorer/` (`index.html`, `styles.css`, `app.js`, and a DOM-free ES module `lib.js`). `index.html` also loads `theme.css` after `styles.css`. It ships without rules, so a site that hosts the explorer can replace that one file to restyle the page while every other file stays identical to the release. Picking plain HTML, CSS, and vanilla ES modules over a bundler toolchain (such as Vite or Astro) keeps `geocrawl` a single `uv` install with no `npm` build step and zero external CDN stylesheets, scripts, or web fonts.
 
 At runtime, `app.js` fetches `./comparison.json` with `cache: "no-store"`, validates the root schema, counts, statuses, and hexadecimal identifiers through `validateComparisonPayload` (`schema_version == 1`), and builds every element with `document.createElement` and `textContent` rather than `innerHTML`.
 

@@ -1,0 +1,5 @@
+/*
+ * Host theme slot. index.html loads this file after styles.css.
+ * It ships without rules. A site that hosts the explorer can replace it
+ * to restyle the page without editing the explorer's own files.
+ */

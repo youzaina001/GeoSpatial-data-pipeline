@@ -411,6 +411,21 @@ test("buildReproduceInfo formats GitHub links and guards unsafe sample_id values
   );
 });
 
+test("explorer loads an empty host theme stylesheet after its own styles", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const explorerDir = path.join(repoRoot, "explorer");
+  const html = fs.readFileSync(path.join(explorerDir, "index.html"), "utf8");
+  const theme = fs.readFileSync(path.join(explorerDir, "theme.css"), "utf8");
+
+  const hrefs = [...html.matchAll(/<link\b[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>/gi)].map(
+    (match) => match[1],
+  );
+  assert.deepEqual(hrefs, ["./styles.css", "./theme.css"]);
+
+  const rules = theme.replace(/\/\*[\s\S]*?\*\//g, "").trim();
+  assert.equal(rules, "", "theme.css ships without rules; a host page replaces it");
+});
+
 test("static explorer assets are self-contained, free of innerHTML, and expose required hooks", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const explorerDir = path.join(repoRoot, "explorer");
