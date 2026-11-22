@@ -61,8 +61,10 @@ independent of page processing order.
 
 **Visible prose** is the article text a reader sees in headings, paragraphs,
 list items, blockquotes, table cells, figure captions and standalone bold
-headlines in the article body. Hidden text, scripts, form fields and UI
-controls such as "Subscribe to RSS" are not prose.
+headlines sitting directly in the article body or a layout `<div>` or `<section>`
+(not wrapped in `<a>`, `<span>`, `<summary>` or other non-prose elements).
+Hidden text, scripts, form fields and UI controls such as "Subscribe to RSS"
+are not prose.
 
 **Candidate** is the comparison one maintainer run produces, kept in its own
 run folder with the run summary. A candidate becomes the **published

@@ -21,9 +21,14 @@ UI_TAGS = frozenset(
 
 CHROME_TAGS = HIDDEN_TAGS | UI_TAGS
 
-# ADR 0018: the only elements whose text counts as prose (plus a standalone <strong>).
+# ADR 0018: the only elements whose text counts as prose (plus a standalone <strong>
+# directly inside the article body or a layout <div>/<section>).
 PROSE_BLOCK_TAGS = frozenset(
     {"h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "blockquote", "th", "td", "figcaption"}
+)
+
+_STANDALONE_STRONG_PARENTS = frozenset(
+    {"article", "main", "div", "section", "html", "body", "-undef", ""}
 )
 
 WAYBACK_CHROME_IDS = frozenset({"wm-ipp-base", "wm-ipp", "donato"})
@@ -161,13 +166,24 @@ def _walk(root: LexborNode, skip_tags: frozenset[str]) -> Iterator[tuple[str, Le
         pending.extend(("node", child, "") for child in reversed(_children(node)))
 
 
+def _is_standalone_strong(node: LexborNode, container: LexborNode) -> bool:
+    """Return True when every ancestor of ``node`` up to ``container`` is a layout container."""
+    current = node.parent
+    while current is not None and current != container:
+        tag = current.tag or ""
+        if tag != "strong" and tag not in _STANDALONE_STRONG_PARENTS:
+            return False
+        current = current.parent
+    return True
+
+
 def _prose_blocks(root: LexborNode) -> list[str]:
     """Collect visible prose blocks (ADR 0018).
 
-    Text counts only inside a prose block or a <strong> outside any prose block (a <strong>
-    nested inside a standalone <strong> stays part of that headline). Hidden content, UI
-    controls, chrome and <pre> code blocks are skipped, and a skipped block still ends the
-    text before it. A visible <br> is a space.
+    Text counts only inside a prose block or a <strong> outside any prose block when every
+    open ancestor is a layout container (a <strong> nested inside a standalone <strong> stays
+    part of that headline). Hidden content, UI controls, chrome and <pre> code blocks are
+    skipped, and a skipped block still ends the text before it. A visible <br> is a space.
     """
     blocks: list[str] = []
     current: list[str] = []
@@ -180,7 +196,7 @@ def _prose_blocks(root: LexborNode) -> list[str]:
             blocks.append(text)
         current.clear()
 
-    for kind, _, value in _walk(root, PROSE_SKIP_TAGS):
+    for kind, node, value in _walk(root, PROSE_SKIP_TAGS):
         if kind == "text":
             if collecting_depths:
                 current.append(value)
@@ -189,7 +205,11 @@ def _prose_blocks(root: LexborNode) -> list[str]:
                 flush()
         elif kind == "start":
             depth += 1
-            collects = value in PROSE_BLOCK_TAGS or (value == "strong" and not collecting_depths)
+            collects = value in PROSE_BLOCK_TAGS or (
+                value == "strong"
+                and not collecting_depths
+                and _is_standalone_strong(node, root)
+            )
             if collects or value in _SPLIT_TAGS:
                 flush()
             if value == "br" and collecting_depths:
@@ -226,14 +246,22 @@ def _is_or_contains(ancestor: LexborNode, node: LexborNode) -> bool:
 
 
 def _enclosing_prose_block(node: LexborNode, container: LexborNode) -> LexborNode | None:
-    """Return the outermost prose-collecting ancestor of ``node`` inside ``container``, or None."""
-    outermost: LexborNode | None = None
+    """Return the outermost prose-collecting ancestor of ``node`` inside ``container``,
+    or the nearest non-layout wrapper when ``node`` sits inside one outside any prose block.
+    """
+    outermost_prose: LexborNode | None = None
+    nearest_non_layout: LexborNode | None = None
     current = node.parent
     while current is not None and current != container:
-        if current.tag in PROSE_BLOCK_TAGS or current.tag == "strong":
-            outermost = current
+        tag = current.tag or ""
+        if tag in PROSE_BLOCK_TAGS or (
+            tag == "strong" and _is_standalone_strong(current, container)
+        ):
+            outermost_prose = current
+        elif nearest_non_layout is None and tag != "strong" and tag not in _STANDALONE_STRONG_PARENTS:
+            nearest_non_layout = current
         current = current.parent
-    return outermost
+    return outermost_prose or nearest_non_layout
 
 
 def _strip_chrome(root: LexborNode) -> bool:
