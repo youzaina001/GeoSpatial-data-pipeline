@@ -307,6 +307,7 @@ export class CdpClient {
 
     const promise = new Promise((resolve, reject) => {
       if (this.closed) {
+        settled = true;
         reject(new Error(`Cannot wait for ${method}: CDP WebSocket is closed`));
         return;
       }
@@ -413,12 +414,15 @@ export class CdpClient {
     throw new Error(`Timed out waiting for: ${description}`);
   }
 
-  async navigate(sessionId, url) {
+  async navigate(sessionId, url, loadTimeoutMs = 15000) {
     const loadWaiter = this._createEventWaiter(
       "Page.loadEventFired",
       (_params, eventSessionId) => eventSessionId === sessionId,
-      15000,
+      loadTimeoutMs,
     );
+    // Attach a rejection handler before awaiting send() so an early socket close
+    // or timeout never surfaces as an unhandled rejection before try/finally exits.
+    loadWaiter.promise.catch(() => {});
     try {
       const navResult = await this.send("Page.navigate", { url }, sessionId);
       if (navResult.errorText) {

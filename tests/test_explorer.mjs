@@ -11,6 +11,7 @@ import {
   validateAttributionLink,
   validateComparisonPayload,
 } from "../explorer/lib.js";
+import { CdpClient } from "./cdp_driver.mjs";
 
 const COMMIT_A = "a".repeat(40);
 const SHA256_B = "b".repeat(64);
@@ -458,4 +459,60 @@ test("static explorer assets are self-contained, free of innerHTML, and expose r
 
   assert.match(html, /aria-live=["']polite["']/i);
   assert.doesNotMatch(html + css + js + libJs, /[\u2013\u2014]/, "UI files must not use em or en dashes");
+});
+
+test("CdpClient.navigate handles mid-navigation socket close, closed client, errorText, and load timeout without unhandled rejections", async () => {
+  const makeFakeWs = () =>
+    Object.assign(new EventTarget(), {
+      sent: [],
+      send(raw) {
+        this.sent.push(JSON.parse(raw));
+      },
+      close() {},
+    });
+
+  // 1. WebSocket closes while Page.navigate is still in-flight.
+  const ws1 = makeFakeWs();
+  const client1 = new CdpClient(ws1);
+  const nav1 = client1.navigate("s1", "http://127.0.0.1/close-mid-nav");
+  assert.equal(ws1.sent.length, 1);
+  assert.equal(ws1.sent[0].method, "Page.navigate");
+  ws1.dispatchEvent(new Event("close"));
+  await assert.rejects(nav1, /CDP connection closed while waiting for Page\.navigate/);
+  assert.equal(client1.activeWaiters.size, 0);
+
+  // 2. Navigate called after connection is already closed.
+  await assert.rejects(
+    client1.navigate("s1", "http://127.0.0.1/already-closed"),
+    /Cannot send Page\.navigate: CDP WebSocket is closed/,
+  );
+  assert.equal(client1.activeWaiters.size, 0);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  // 3. loadWaiter times out before Page.navigate resolves with an errorText.
+  const ws3 = makeFakeWs();
+  const client3 = new CdpClient(ws3);
+  const nav3 = client3.navigate("s3", "http://127.0.0.1/timeout-then-error", 10);
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  const cmdId = ws3.sent[0].id;
+  ws3.dispatchEvent(
+    Object.assign(new Event("message"), {
+      data: JSON.stringify({ id: cmdId, result: { errorText: "net::ERR_ABORTED" } }),
+    }),
+  );
+  await assert.rejects(nav3, /Navigation to http:\/\/127\.0\.0\.1\/timeout-then-error failed: net::ERR_ABORTED/);
+  assert.equal(client3.activeWaiters.size, 0);
+
+  // 4. Page.navigate succeeds, then loadWaiter times out (still rejects loudly, not swallowed).
+  const ws4 = makeFakeWs();
+  const client4 = new CdpClient(ws4);
+  const nav4 = client4.navigate("s4", "http://127.0.0.1/load-timeout", 15);
+  ws4.dispatchEvent(
+    Object.assign(new Event("message"), {
+      data: JSON.stringify({ id: ws4.sent[0].id, result: {} }),
+    }),
+  );
+  await assert.rejects(nav4, /Timed out waiting for CDP event Page\.loadEventFired/);
+  assert.equal(client4.activeWaiters.size, 0);
+  await new Promise((resolve) => setTimeout(resolve, 20));
 });
