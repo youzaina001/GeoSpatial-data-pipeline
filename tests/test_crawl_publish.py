@@ -608,7 +608,7 @@ def test_confirmed_promotion_bundles_explorer_assets_and_release_manifest(tmp_pa
     assert "explorer bundle" in result.preview.lower()
     assert str(REPO / "explorer") in result.preview
 
-    for asset in ("index.html", "styles.css", "app.js", "lib.js"):
+    for asset in ("index.html", "styles.css", "theme.css", "app.js", "lib.js"):
         expected = (REPO / "explorer" / asset).read_bytes()
         assert (site / asset).read_bytes() == expected
         assert (site / "releases" / head / asset).read_bytes() == expected
@@ -618,7 +618,9 @@ def test_confirmed_promotion_bundles_explorer_assets_and_release_manifest(tmp_pa
     assert (site / "releases" / head / "comparison.json").read_bytes() == candidate
     assert not (site / ".bundle-manifest.json").exists()
     bundle_manifest = _json(site / "releases" / head / ".bundle-manifest.json")
-    assert bundle_manifest == {"files": ["app.js", "index.html", "lib.js", "styles.css"]}
+    assert bundle_manifest == {
+        "files": ["app.js", "index.html", "lib.js", "styles.css", "theme.css"]
+    }
 
 
 def test_rollback_restores_release_explorer_assets_and_removes_newer_stale_files(
