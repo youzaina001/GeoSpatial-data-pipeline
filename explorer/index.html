@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>geocrawl: Crawl Freshness Comparison</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to comparison results</a>
+
+    <header class="site-header">
+      <div class="container header-inner">
+        <p class="eyebrow">
+          <span>geocrawl</span>
+          <span class="sample-pill" data-sample-id hidden></span>
+        </p>
+        <h1>How much new prose does a later web crawl add?</h1>
+        <p class="lead">
+          Inspect distinct newly observed words between two archived crawl windows without running a live query service.
+        </p>
+        <p class="status-line" data-loading-status aria-live="polite">
+          Loading comparison data...
+        </p>
+      </div>
+    </header>
+
+    <main id="main-content" class="container main-content">
+      <section class="error-banner" data-error-banner role="alert" hidden>
+        <h2 class="error-title" data-error-title>Could not load comparison.json</h2>
+        <p class="error-message" data-error-message></p>
+      </section>
+
+      <section class="summary-section" aria-labelledby="summary-heading" data-comparison-shell hidden>
+        <div class="section-header-row">
+          <div>
+            <h2 id="summary-heading" class="section-heading">Crawl summary</h2>
+            <p class="window-caption">
+              Comparison window:
+              <strong class="mono" data-window-range></strong>
+            </p>
+          </div>
+          <div class="reproduce-actions">
+            <a
+              class="reproduce-link"
+              data-reproduce-link
+              href="#reproduce-details"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Reproduce this result
+            </a>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <article class="kpi-card kpi-card-primary">
+            <p class="kpi-label">Distinct new words</p>
+            <p class="kpi-value" data-summary-words>0</p>
+            <p class="kpi-note">Counted once across all compared pages</p>
+          </article>
+          <article class="kpi-card">
+            <p class="kpi-label">Compared pages</p>
+            <p class="kpi-value" data-compared-count>0</p>
+            <p class="kpi-note">Both captures verified and extracted</p>
+          </article>
+          <article class="kpi-card">
+            <p class="kpi-label">Excluded pages</p>
+            <p class="kpi-value" data-excluded-count>0</p>
+            <p class="kpi-note">Marked comparison incomplete</p>
+          </article>
+        </div>
+
+        <details id="reproduce-details" class="reproduce-details">
+          <summary>Provenance, manifest checksum, and local command</summary>
+          <dl class="provenance-list">
+            <div class="provenance-item">
+              <dt>Producing commit</dt>
+              <dd class="mono break-all" data-producing-commit></dd>
+            </div>
+            <div class="provenance-item">
+              <dt>Manifest SHA-256</dt>
+              <dd class="mono break-all" data-manifest-sha256></dd>
+            </div>
+            <div class="provenance-item">
+              <dt>Input manifest</dt>
+              <dd data-manifest-slot></dd>
+            </div>
+            <div class="provenance-item">
+              <dt>Local demo command</dt>
+              <dd>
+                <code class="command-code" data-demo-command></code>
+              </dd>
+            </div>
+          </dl>
+        </details>
+      </section>
+
+      <section class="explorer-section" aria-labelledby="pages-heading" data-pages-shell hidden>
+        <div class="section-header-row">
+          <h2 id="pages-heading" class="section-heading">Page contributions</h2>
+          <p class="match-count" data-match-count aria-live="polite"></p>
+        </div>
+
+        <div class="controls-bar">
+          <div class="control-group control-search">
+            <label class="control-label" for="url-filter">Filter by URL</label>
+            <input
+              id="url-filter"
+              class="search-input"
+              type="search"
+              placeholder="Search page URL..."
+              autocomplete="off"
+              data-url-filter
+            />
+          </div>
+
+          <div class="control-group">
+            <span class="control-label" id="status-filter-label">Status</span>
+            <div class="segmented-group" role="group" aria-labelledby="status-filter-label">
+              <button
+                type="button"
+                class="segmented-btn"
+                data-status-filter="all"
+                aria-pressed="true"
+              >
+                All
+              </button>
+              <button
+                type="button"
+                class="segmented-btn"
+                data-status-filter="compared"
+                aria-pressed="false"
+              >
+                Compared
+              </button>
+              <button
+                type="button"
+                class="segmented-btn"
+                data-status-filter="comparison_incomplete"
+                aria-pressed="false"
+              >
+                Incomplete
+              </button>
+            </div>
+          </div>
+
+          <div class="control-group control-sort">
+            <label class="control-label" for="sort-select">Sort by</label>
+            <select id="sort-select" class="sort-select" data-sort-select>
+              <option value="new_words_desc">Most new words</option>
+              <option value="new_words_asc">Fewest new words</option>
+              <option value="url_asc">Page URL A-Z</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="explorer-workspace">
+          <div class="page-list-card">
+            <ul class="page-list" data-page-list aria-label="Filtered crawl pages"></ul>
+            <p class="empty-list-message" data-empty-list hidden>
+              No pages match the current filter.
+            </p>
+          </div>
+
+          <section
+            class="detail-panel"
+            data-page-detail
+            aria-live="polite"
+            aria-labelledby="detail-heading"
+          >
+            <h3 id="detail-heading" class="detail-heading">Selected page</h3>
+            <div class="detail-body" data-detail-body>
+              <p class="detail-empty">Select a page to inspect its word count and archived captures.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer" data-attribution-footer hidden>
+      <div class="container footer-inner">
+        <h2 class="footer-heading">Source attribution</h2>
+        <dl class="attribution-list" data-attribution-list></dl>
+      </div>
+    </footer>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

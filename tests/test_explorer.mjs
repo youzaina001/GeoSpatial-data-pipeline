@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   buildReproduceInfo,
@@ -388,4 +391,50 @@ test("buildReproduceInfo formats GitHub links and guards unsafe sample_id values
     () => buildReproduceInfo(makeCloudflareComparison(), "javascript:alert(1)"),
     /repoBaseUrl/i,
   );
+});
+
+test("static explorer assets are self-contained, free of innerHTML, and expose required hooks", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const explorerDir = path.join(repoRoot, "explorer");
+  const htmlPath = path.join(explorerDir, "index.html");
+  const cssPath = path.join(explorerDir, "styles.css");
+  const jsPath = path.join(explorerDir, "app.js");
+
+  const html = fs.readFileSync(htmlPath, "utf8");
+  const css = fs.readFileSync(cssPath, "utf8");
+  const js = fs.readFileSync(jsPath, "utf8");
+
+  assert.match(html, /<link\b[^>]*href=["']\.\/styles\.css["'][^>]*>/i);
+  assert.match(html, /<script\b[^>]*src=["']\.\/app\.js["'][^>]*>/i);
+
+  assert.doesNotMatch(html, /<(script|link|img|iframe)\b[^>]*\b(src|href)=["']https?:\/\//i);
+  assert.doesNotMatch(css, /@import\s+(?:url\()?["']?https?:\/\//i);
+  assert.doesNotMatch(css, /url\(["']?https?:\/\//i);
+  assert.doesNotMatch(js, /https?:\/\//i);
+
+  assert.doesNotMatch(js, /\.innerHTML\s*=/);
+  assert.doesNotMatch(js, /\binsertAdjacentHTML\b/);
+  assert.doesNotMatch(js, /\bdocument\.write\b/);
+
+  for (const attr of [
+    "data-summary-words",
+    "data-window-range",
+    "data-compared-count",
+    "data-excluded-count",
+    "data-reproduce-link",
+    "data-page-detail",
+    "data-error-banner",
+  ]) {
+    assert.ok(html.includes(attr), `index.html missing required attribute ${attr}`);
+  }
+
+  for (const attr of ["data-page-row", "data-capture-fallback"]) {
+    assert.ok(
+      html.includes(attr) || js.includes(attr),
+      `explorer UI missing required attribute ${attr}`,
+    );
+  }
+
+  assert.match(html, /aria-live=["']polite["']/i);
+  assert.doesNotMatch(html + css + js, /[\u2013\u2014]/, "UI files must not use em or en dashes");
 });
