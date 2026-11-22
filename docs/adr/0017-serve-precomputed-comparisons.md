@@ -8,7 +8,7 @@ Passing CI makes a commit eligible for release. A maintainer explicitly selects 
 
 Publication has two steps, so a run never changes what visitors see.
 
-1. `geocrawl build` processes one manifest and writes a candidate to its own run folder, `runs/<UTC time>-<commit>/`. The folder holds the candidate `comparison.json` and the maintainer's `run-summary.json`. A run that fails during processing or validation still gets a folder with its run summary, which records the failed step and reason and holds no comparison. `geocrawl build` never touches the published file.
+1. `geocrawl build` processes one manifest and writes a candidate to its own run folder, `runs/<UTC time>-<commit>/`. The folder holds the candidate `comparison.json` and the maintainer's `run-summary.json`. A run that fails with an expected input, filesystem or DuckDB validation or processing error still gets a folder with its run summary, which records the failed step and reason and holds no comparison, whereas unexpected programming errors propagate with their traceback without writing a run folder. `geocrawl build` never touches the published file.
 2. `geocrawl promote <run>` shows the maintainer the candidate and current public result side by side. For each, it shows both capture windows, pages compared, pages excluded and distinct new words across the crawl. When nothing is published yet, it shows the candidate figures and says "first release". It publishes only when the maintainer adds `--yes`.
 
 For each excluded page, include its URL, capture timestamp, failed processing step and reason in the maintainer's run summary. A reviewer investigating an older exclusion will need the output from that run, so run folders are kept rather than overwritten.
