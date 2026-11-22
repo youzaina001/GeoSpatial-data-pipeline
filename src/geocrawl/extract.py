@@ -21,9 +21,14 @@ UI_TAGS = frozenset(
 
 CHROME_TAGS = HIDDEN_TAGS | UI_TAGS
 
-# ADR 0018: the only elements whose text counts as prose (plus a standalone <strong>).
+# ADR 0018: the only elements whose text counts as prose (plus a standalone <strong>
+# directly inside the article body or a layout <div>/<section>).
 PROSE_BLOCK_TAGS = frozenset(
     {"h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "blockquote", "th", "td", "figcaption"}
+)
+
+_STANDALONE_STRONG_PARENTS = frozenset(
+    {"article", "main", "div", "section", "html", "body", "-undef", ""}
 )
 
 WAYBACK_CHROME_IDS = frozenset({"wm-ipp-base", "wm-ipp", "donato"})
@@ -164,15 +169,16 @@ def _walk(root: LexborNode, skip_tags: frozenset[str]) -> Iterator[tuple[str, Le
 def _prose_blocks(root: LexborNode) -> list[str]:
     """Collect visible prose blocks (ADR 0018).
 
-    Text counts only inside a prose block or a <strong> outside any prose block (a <strong>
-    nested inside a standalone <strong> stays part of that headline). Hidden content, UI
-    controls, chrome and <pre> code blocks are skipped, and a skipped block still ends the
-    text before it. A visible <br> is a space.
+    Text counts only inside a prose block or a <strong> outside any prose block when every
+    open ancestor is a layout container (a <strong> nested inside a standalone <strong> stays
+    part of that headline). Hidden content, UI controls, chrome and <pre> code blocks are
+    skipped, and a skipped block still ends the text before it. A visible <br> is a space.
     """
     blocks: list[str] = []
     current: list[str] = []
     depth = 0
     collecting_depths: list[int] = []
+    open_tags: list[str] = []
 
     def flush() -> None:
         text = "".join(current).strip()
@@ -189,7 +195,12 @@ def _prose_blocks(root: LexborNode) -> list[str]:
                 flush()
         elif kind == "start":
             depth += 1
-            collects = value in PROSE_BLOCK_TAGS or (value == "strong" and not collecting_depths)
+            collects = value in PROSE_BLOCK_TAGS or (
+                value == "strong"
+                and not collecting_depths
+                and all(tag in _STANDALONE_STRONG_PARENTS for tag in open_tags)
+            )
+            open_tags.append(value)
             if collects or value in _SPLIT_TAGS:
                 flush()
             if value == "br" and collecting_depths:
@@ -197,6 +208,7 @@ def _prose_blocks(root: LexborNode) -> list[str]:
             if collects:
                 collecting_depths.append(depth)
         elif kind == "end":
+            open_tags.pop()
             collects = bool(collecting_depths and collecting_depths[-1] == depth)
             if collects:
                 collecting_depths.pop()
@@ -225,12 +237,24 @@ def _is_or_contains(ancestor: LexborNode, node: LexborNode) -> bool:
     return False
 
 
+def _is_standalone_strong(node: LexborNode, container: LexborNode) -> bool:
+    current = node.parent
+    while current is not None and current != container:
+        tag = current.tag or ""
+        if tag != "strong" and tag not in _STANDALONE_STRONG_PARENTS:
+            return False
+        current = current.parent
+    return True
+
+
 def _enclosing_prose_block(node: LexborNode, container: LexborNode) -> LexborNode | None:
     """Return the outermost prose-collecting ancestor of ``node`` inside ``container``, or None."""
     outermost: LexborNode | None = None
     current = node.parent
     while current is not None and current != container:
-        if current.tag in PROSE_BLOCK_TAGS or current.tag == "strong":
+        if current.tag in PROSE_BLOCK_TAGS or (
+            current.tag == "strong" and _is_standalone_strong(current, container)
+        ):
             outermost = current
         current = current.parent
     return outermost
