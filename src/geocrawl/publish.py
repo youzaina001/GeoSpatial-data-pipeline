@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 from collections.abc import Callable, Iterable
@@ -24,7 +25,11 @@ COMPARISON_FILE = "comparison.json"
 SUMMARY_FILE = "run-summary.json"
 BUNDLE_MANIFEST_FILE = ".bundle-manifest.json"
 DEFAULT_EXPLORER_DIR: Path = Path(__file__).resolve().parents[2] / "explorer"
-_SKIPPED_EXPLORER_ROOT_ENTRIES = frozenset({COMPARISON_FILE, SUMMARY_FILE, "releases"})
+_RESERVED_EXPLORER_ROOT_ENTRIES = frozenset(
+    {COMPARISON_FILE, SUMMARY_FILE, "releases", BUNDLE_MANIFEST_FILE}
+)
+_RELEASE_SKIPPED_ROOT_ENTRIES = frozenset({COMPARISON_FILE, BUNDLE_MANIFEST_FILE})
+_RELEASE_FORBIDDEN_ROOT_ENTRIES = frozenset({SUMMARY_FILE, "releases"})
 _COMMIT_RE = re.compile(r"[0-9a-f]{40}")
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
@@ -205,7 +210,7 @@ def _render(payload: ComparisonDocument | RunSummaryDocument) -> bytes:
     return (json.dumps(payload, indent=2) + "\n").encode("utf-8")
 
 
-def _write_atomic(target_path: Path, data: bytes) -> None:
+def _write_atomic(target_path: Path, data: bytes, *, mode: int = 0o644) -> None:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path: Path | None = None
     try:
@@ -216,6 +221,7 @@ def _write_atomic(target_path: Path, data: bytes) -> None:
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
+        os.chmod(tmp_path, mode)
         os.replace(tmp_path, target_path)
     except BaseException:
         if tmp_path is not None and tmp_path.exists():
@@ -349,8 +355,8 @@ def _validate_comparison(data: object, source: Path) -> ComparisonDocument:
         validated_attribution = {}
         for attr_key in _ATTRIBUTION_KEYS:
             attr_value = raw_attribution[attr_key]
-            if not isinstance(attr_value, str):
-                raise bad("attribution must be null or an object of the attribution strings")
+            if not isinstance(attr_value, str) or not attr_value.strip():
+                raise bad("attribution must be null or an object of non-empty attribution strings")
             validated_attribution[attr_key] = attr_value
 
     counts = {"compared": 0, "comparison_incomplete": 0}
@@ -479,11 +485,22 @@ def _preview(
     return "\n".join(lines)
 
 
+def _has_release_marker(run_dir: Path) -> bool:
+    index_path = run_dir / "index.html"
+    manifest_path = run_dir / BUNDLE_MANIFEST_FILE
+    return (
+        index_path.is_symlink()
+        or index_path.exists()
+        or manifest_path.is_symlink()
+        or manifest_path.exists()
+    )
+
+
 def _resolve_explorer_source(run_dir: Path, explorer_dir: Path | None) -> Path:
     """Choose the explorer asset directory for promotion or rollback."""
     if explorer_dir is not None:
         return explorer_dir
-    if (run_dir / "index.html").is_file():
+    if _has_release_marker(run_dir):
         return run_dir
     return DEFAULT_EXPLORER_DIR
 
@@ -492,9 +509,11 @@ def _walk_explorer_dir(
     current_dir: Path, rel_dir: Path, files: dict[Path, bytes]
 ) -> None:
     for entry in sorted(current_dir.iterdir(), key=lambda p: p.name):
+        if rel_dir == Path() and entry.name in _RESERVED_EXPLORER_ROOT_ENTRIES:
+            raise ValueError(f"Explorer bundle cannot contain reserved entry: {entry}")
         if entry.name.startswith("."):
-            continue
-        if rel_dir == Path() and entry.name in _SKIPPED_EXPLORER_ROOT_ENTRIES:
+            if entry.is_symlink():
+                raise ValueError(f"Explorer bundle cannot contain symlinks: {entry}")
             continue
         if entry.is_symlink():
             raise ValueError(f"Explorer bundle cannot contain symlinks: {entry}")
@@ -507,9 +526,14 @@ def _walk_explorer_dir(
             raise ValueError(f"Unsupported file type in explorer bundle: {entry}")
 
 
-def _collect_explorer_files(source_dir: Path) -> dict[Path, bytes]:
-    """Read explorer assets relative to source_dir, refusing symlinks and missing index.html."""
+def _collect_explorer_files(source_dir: Path, *, is_default: bool = False) -> dict[Path, bytes]:
+    """Read standalone explorer assets, refusing symlinks, reserved names, and missing index.html."""
     if source_dir.is_symlink() or not source_dir.is_dir():
+        if is_default or source_dir == DEFAULT_EXPLORER_DIR:
+            raise ValueError(
+                f"Default explorer directory not found: {source_dir}. "
+                "Pass --explorer-dir if running outside the repository checkout."
+            )
         raise ValueError(f"Explorer directory not found: {source_dir}")
     index_path = source_dir / "index.html"
     if index_path.is_symlink():
@@ -524,6 +548,62 @@ def _collect_explorer_files(source_dir: Path) -> dict[Path, bytes]:
     return {rel: files[rel] for rel in sorted(files, key=lambda p: p.as_posix())}
 
 
+def _walk_release_bundle_dir(
+    current_dir: Path, rel_dir: Path, files: dict[Path, bytes]
+) -> None:
+    entries = sorted(current_dir.iterdir(), key=lambda p: p.name)
+    if rel_dir != Path() and not entries:
+        raise ValueError(f"Release bundle cannot contain empty directory: {current_dir}")
+    for entry in entries:
+        if entry.is_symlink():
+            raise ValueError(f"Release bundle cannot contain symlinks: {entry}")
+        if rel_dir == Path():
+            if entry.name in _RELEASE_FORBIDDEN_ROOT_ENTRIES:
+                raise ValueError(f"Release bundle cannot contain reserved entry: {entry}")
+            if entry.name in _RELEASE_SKIPPED_ROOT_ENTRIES:
+                if not entry.is_file():
+                    raise ValueError(f"Release bundle metadata must be a regular file: {entry}")
+                continue
+        if entry.name.startswith("."):
+            raise ValueError(f"Release bundle cannot contain hidden entry: {entry}")
+        rel = rel_dir / entry.name
+        if entry.is_dir():
+            _walk_release_bundle_dir(entry, rel, files)
+        elif entry.is_file():
+            files[rel] = entry.read_bytes()
+        else:
+            raise ValueError(f"Unsupported file type in release bundle: {entry}")
+
+
+def _collect_release_bundle_files(release_dir: Path) -> dict[Path, bytes]:
+    """Read and validate a release rollback bundle against its .bundle-manifest.json."""
+    if release_dir.is_symlink() or not release_dir.is_dir():
+        raise ValueError(f"Release directory not found: {release_dir}")
+    index_path = release_dir / "index.html"
+    if index_path.is_symlink():
+        raise ValueError(f"Release bundle cannot contain symlinks: {index_path}")
+    if not index_path.is_file():
+        raise ValueError(f"Release bundle {release_dir} is missing index.html")
+    manifest_path = release_dir / BUNDLE_MANIFEST_FILE
+    if manifest_path.is_symlink():
+        raise ValueError(f"Release bundle cannot contain symlinks: {manifest_path}")
+    if not manifest_path.is_file():
+        raise ValueError(f"Release bundle {release_dir} is missing {BUNDLE_MANIFEST_FILE}")
+
+    files: dict[Path, bytes] = {}
+    _walk_release_bundle_dir(release_dir, Path(), files)
+    index_bytes = files.get(Path("index.html"))
+    if index_bytes is None or not index_bytes.strip():
+        raise ValueError(f"Release bundle at {release_dir} must contain a non-empty index.html")
+
+    recorded_entries = _read_bundle_manifest(manifest_path)
+    if set(files) != recorded_entries:
+        raise ValueError(
+            f"Release bundle at {release_dir} does not match {BUNDLE_MANIFEST_FILE}"
+        )
+    return {rel: files[rel] for rel in sorted(files, key=lambda p: p.as_posix())}
+
+
 def _render_bundle_manifest(explorer_files: dict[Path, bytes]) -> bytes:
     payload = {"files": sorted(rel.as_posix() for rel in explorer_files)}
     return (json.dumps(payload, indent=2) + "\n").encode("utf-8")
@@ -531,24 +611,34 @@ def _render_bundle_manifest(explorer_files: dict[Path, bytes]) -> bytes:
 
 def _read_bundle_manifest(manifest_path: Path) -> set[Path]:
     """Read the managed relative explorer paths recorded for an earlier release."""
-    if not manifest_path.is_file():
+    if manifest_path.is_symlink():
+        raise ValueError(f"Bundle manifest cannot be a symlink: {manifest_path}")
+    if not manifest_path.exists():
         return set()
+    if not manifest_path.is_file():
+        raise ValueError(f"Invalid bundle manifest at {manifest_path}")
     try:
-        payload: object = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        payload: object = json.loads(
+            manifest_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_members,
+        )
+    except (UnicodeDecodeError, ValueError) as exc:
         raise ValueError(f"Invalid bundle manifest at {manifest_path}") from exc
     if not isinstance(payload, dict) or not isinstance(payload.get("files"), list):
         raise ValueError(f"Invalid bundle manifest at {manifest_path}")
     managed: set[Path] = set()
     for item in payload["files"]:
-        if not isinstance(item, str) or not item:
-            raise ValueError(f"Invalid bundle manifest entry at {manifest_path}")
-        rel = Path(item)
+        if not isinstance(item, str) or not item or "\\" in item or item.startswith("/"):
+            raise ValueError(f"Unsafe bundle manifest entry {item!r} at {manifest_path}")
+        raw_parts = item.split("/")
+        if not raw_parts or any(part in ("", ".", "..") or part.startswith(".") for part in raw_parts):
+            raise ValueError(f"Unsafe bundle manifest entry {item!r} at {manifest_path}")
+        rel = Path(*raw_parts)
         if (
-            rel.is_absolute()
-            or any(part in ("", ".", "..") or part.startswith(".") for part in rel.parts)
+            not rel.parts
+            or rel.is_absolute()
             or rel.parts[0] == "releases"
-            or rel in {Path(COMPARISON_FILE), Path(SUMMARY_FILE)}
+            or rel in {Path(COMPARISON_FILE), Path(SUMMARY_FILE), Path(BUNDLE_MANIFEST_FILE)}
         ):
             raise ValueError(f"Unsafe bundle manifest entry {item!r} at {manifest_path}")
         managed.add(rel)
@@ -591,6 +681,8 @@ def _ensure_release_bundle(
 ) -> None:
     """Create or verify the immutable per-commit release bundle under publish_dir/releases/."""
     releases_dir = publish_dir / "releases"
+    if releases_dir.is_symlink() or (releases_dir.exists() and not releases_dir.is_dir()):
+        raise ValueError(f"Releases path is not a directory: {releases_dir}")
     release_dir = releases_dir / commit
     manifest_bytes = _render_bundle_manifest(explorer_files)
     expected_release: dict[Path, bytes] = {
@@ -599,15 +691,15 @@ def _ensure_release_bundle(
         Path(COMPARISON_FILE): candidate_bytes,
     }
 
-    if release_dir.exists() or release_dir.is_symlink():
+    if release_dir.is_symlink() or release_dir.exists():
         if release_dir.is_symlink() or not release_dir.is_dir():
             raise ValueError(
                 f"{release_dir} already holds a different comparison for commit {commit}"
             )
         release_file = release_dir / COMPARISON_FILE
         if (
-            not release_file.is_file()
-            or release_file.is_symlink()
+            release_file.is_symlink()
+            or not release_file.is_file()
             or release_file.read_bytes() != candidate_bytes
         ):
             raise ValueError(
@@ -634,40 +726,61 @@ def _ensure_release_bundle(
                 handle.write(data)
                 handle.flush()
                 os.fsync(handle.fileno())
+            os.chmod(dest, 0o644)
         os.replace(staging_dir, release_dir)
     except BaseException:
         shutil.rmtree(staging_dir, ignore_errors=True)
         raise
 
 
+def _sorted_rel_parents(rel: Path) -> list[Path]:
+    return sorted((p for p in rel.parents if p != Path(".")), key=lambda p: len(p.parts))
+
+
+def _ensure_no_symlink_ancestors(publish_dir: Path, rel: Path) -> None:
+    for parent_rel in _sorted_rel_parents(rel):
+        parent_abs = publish_dir / parent_rel
+        if parent_abs.is_symlink():
+            raise ValueError(f"Cannot traverse symlinked directory in publish dir: {parent_abs}")
+
+
 def _snapshot_active_targets(
     publish_dir: Path, explorer_files: dict[Path, bytes]
-) -> tuple[dict[Path, bytes | None], dict[Path, bool]]:
-    """Verify active destinations and record prior bytes and directory existence for rollback."""
+) -> tuple[dict[Path, bytes | None], dict[Path, bool], dict[Path, int]]:
+    """Verify active destinations and record prior bytes, modes, and directory existence."""
     if publish_dir.is_symlink() or (publish_dir.exists() and not publish_dir.is_dir()):
         raise ValueError(f"Publish path is not a directory: {publish_dir}")
     prior_bytes: dict[Path, bytes | None] = {}
     dir_existed: dict[Path, bool] = {}
+    prior_modes: dict[Path, int] = {}
     for rel in explorer_files:
-        dest = publish_dir / rel
-        if dest.is_symlink() or (dest.exists() and not dest.is_file()):
-            raise ValueError(f"Cannot overwrite non-file destination at {dest}")
-        for parent_rel in rel.parents:
-            if parent_rel != Path(".") and parent_rel not in dir_existed:
+        for parent_rel in _sorted_rel_parents(rel):
+            if parent_rel not in dir_existed:
                 parent_abs = publish_dir / parent_rel
                 if parent_abs.is_symlink() or (parent_abs.exists() and not parent_abs.is_dir()):
                     raise ValueError(f"Cannot create directory over non-directory at {parent_abs}")
                 dir_existed[parent_rel] = parent_abs.is_dir()
-        prior_bytes[rel] = dest.read_bytes() if dest.is_file() else None
-    return prior_bytes, dir_existed
+        dest = publish_dir / rel
+        if dest.is_symlink() or (dest.exists() and not dest.is_file()):
+            raise ValueError(f"Cannot overwrite non-file destination at {dest}")
+        if dest.is_file():
+            prior_bytes[rel] = dest.read_bytes()
+            prior_modes[rel] = stat.S_IMODE(dest.stat().st_mode)
+        else:
+            prior_bytes[rel] = None
+            prior_modes[rel] = 0o644
+    return prior_bytes, dir_existed, prior_modes
 
 
 def _prune_empty_dirs(publish_dir: Path, rel_dirs: Iterable[Path]) -> None:
     for parent_rel in sorted(set(rel_dirs), key=lambda p: len(p.parts), reverse=True):
-        if parent_rel == Path(".") or parent_rel.parts[0] == "releases":
+        if not parent_rel.parts or parent_rel == Path(".") or parent_rel.parts[0] == "releases":
             continue
+        _ensure_no_symlink_ancestors(publish_dir, parent_rel)
         candidate_dir = publish_dir / parent_rel
-        if candidate_dir.is_dir() and not candidate_dir.is_symlink() and not any(candidate_dir.iterdir()):
+        if candidate_dir.is_symlink():
+            raise ValueError(f"Cannot prune symlinked directory in publish dir: {candidate_dir}")
+        if candidate_dir.is_dir() and not any(candidate_dir.iterdir()):
             candidate_dir.rmdir()
 
 
@@ -676,29 +789,78 @@ def _restore_active_targets(
     written: list[Path],
     prior_bytes: dict[Path, bytes | None],
     dir_existed: dict[Path, bool],
+    prior_modes: dict[Path, int] | None = None,
 ) -> None:
+    first_error: OSError | None = None
     for rel in reversed(written):
+        if prior_bytes[rel] is not None:
+            continue
         dest = publish_dir / rel
+        try:
+            if dest.is_symlink() or dest.is_file():
+                dest.unlink()
+        except OSError as exc:
+            if first_error is None:
+                first_error = exc
+
+    for rel in reversed(written):
         old = prior_bytes[rel]
         if old is None:
-            if dest.is_file() or dest.is_symlink():
-                dest.unlink()
-        elif not dest.is_file() or dest.read_bytes() != old:
-            try:
-                _write_atomic(dest, old)
-            except OSError:
-                dest.write_bytes(old)
-    _prune_empty_dirs(publish_dir, (p for p, existed in dir_existed.items() if not existed))
+            continue
+        dest = publish_dir / rel
+        target_mode = 0o644 if prior_modes is None else prior_modes.get(rel, 0o644)
+        try:
+            needs_restore = (
+                dest.is_symlink()
+                or not dest.is_file()
+                or dest.read_bytes() != old
+                or stat.S_IMODE(dest.stat().st_mode) != target_mode
+            )
+            if needs_restore:
+                _write_atomic(dest, old, mode=target_mode)
+        except OSError as exc:
+            if first_error is None:
+                first_error = exc
+
+    try:
+        _prune_empty_dirs(publish_dir, (p for p, existed in dir_existed.items() if not existed))
+    except OSError as exc:
+        if first_error is None:
+            first_error = exc
+
+    if first_error is not None:
+        raise first_error
+
+
+def _validate_obsolete_managed_paths(
+    publish_dir: Path, previous_managed: set[Path], new_managed: set[Path]
+) -> list[Path]:
+    obsolete = sorted(previous_managed - new_managed, key=lambda p: p.as_posix())
+    safe_obsolete: list[Path] = []
+    for rel in obsolete:
+        if (
+            not rel.parts
+            or rel.is_absolute()
+            or rel.parts[0] == "releases"
+            or rel in {Path(COMPARISON_FILE), Path(SUMMARY_FILE), Path(BUNDLE_MANIFEST_FILE)}
+        ):
+            continue
+        _ensure_no_symlink_ancestors(publish_dir, rel)
+        dest = publish_dir / rel
+        if dest.is_symlink():
+            raise ValueError(f"Cannot prune symlink in publish dir: {dest}")
+        safe_obsolete.append(rel)
+    return safe_obsolete
 
 
 def _prune_obsolete_managed(
     publish_dir: Path, previous_managed: set[Path], new_managed: set[Path]
 ) -> None:
-    obsolete = sorted(previous_managed - new_managed, key=lambda p: p.as_posix())
+    if publish_dir.is_symlink():
+        raise ValueError(f"Publish path cannot be a symlink: {publish_dir}")
+    obsolete = _validate_obsolete_managed_paths(publish_dir, previous_managed, new_managed)
     obsolete_parents: set[Path] = set()
     for rel in obsolete:
-        if rel.parts[0] == "releases" or rel in {Path(COMPARISON_FILE), Path(SUMMARY_FILE)}:
-            continue
         dest = publish_dir / rel
         if dest.is_file() and not dest.is_symlink():
             dest.unlink()
@@ -726,10 +888,14 @@ def promote(
     comparison and explorer assets untouched.
     """
     source = run_dir / COMPARISON_FILE
+    if source.is_symlink():
+        raise ValueError(f"Run {run_dir} comparison cannot be a symlink: {source}")
     if not source.is_file():
         raise ValueError(f"Run {run_dir} has no comparison to promote (a failed run has none)")
     summary_path = run_dir / SUMMARY_FILE
-    if summary_path.is_file():
+    if summary_path.is_symlink():
+        raise ValueError(f"Run {run_dir} summary cannot be a symlink: {summary_path}")
+    if summary_path.is_file() and not _has_release_marker(run_dir):
         try:
             status = json.loads(summary_path.read_text(encoding="utf-8")).get("status")
         except (UnicodeDecodeError, json.JSONDecodeError, AttributeError) as exc:
@@ -739,9 +905,31 @@ def promote(
     candidate_bytes, candidate = _read_comparison(source)
 
     explorer_source = _resolve_explorer_source(run_dir, explorer_dir)
-    explorer_files = _collect_explorer_files(explorer_source)
+    if explorer_dir is None and explorer_source == run_dir:
+        explorer_files = _collect_release_bundle_files(run_dir)
+    else:
+        explorer_files = _collect_explorer_files(
+            explorer_source, is_default=(explorer_dir is None)
+        )
+        if _has_release_marker(run_dir):
+            release_files = _collect_release_bundle_files(run_dir)
+            if release_files != explorer_files:
+                raise ValueError(
+                    f"{run_dir} already holds a different release bundle for commit "
+                    f"{candidate['producing_commit']}"
+                )
 
+    if publish_dir.is_symlink() or (publish_dir.exists() and not publish_dir.is_dir()):
+        raise ValueError(f"Publish path is not a directory: {publish_dir}")
     target = publish_dir / COMPARISON_FILE
+    if target.is_symlink():
+        raise ValueError(f"Published comparison path cannot be a symlink: {target}")
+    if target.exists() and not target.is_file():
+        raise ValueError(f"Published comparison path is not a regular file: {target}")
+    releases_dir = publish_dir / "releases"
+    if releases_dir.is_symlink() or (releases_dir.exists() and not releases_dir.is_dir()):
+        raise ValueError(f"Releases path is not a directory: {releases_dir}")
+
     current: ComparisonDocument | None = None
     if target.exists():
         try:
@@ -754,22 +942,29 @@ def promote(
 
     previous_managed: set[Path] = set()
     if current is not None:
-        prev_manifest = (
-            publish_dir / "releases" / current["producing_commit"] / BUNDLE_MANIFEST_FILE
-        )
+        prev_release_dir = releases_dir / current["producing_commit"]
+        if prev_release_dir.is_symlink() or (
+            prev_release_dir.exists() and not prev_release_dir.is_dir()
+        ):
+            raise ValueError(f"Previous release path is not a directory: {prev_release_dir}")
+        prev_manifest = prev_release_dir / BUNDLE_MANIFEST_FILE
         previous_managed = _read_bundle_manifest(prev_manifest)
+        _validate_obsolete_managed_paths(publish_dir, previous_managed, set(explorer_files))
 
-    prior_bytes, dir_existed = _snapshot_active_targets(publish_dir, explorer_files)
+    prior_bytes, dir_existed, prior_modes = _snapshot_active_targets(publish_dir, explorer_files)
     _ensure_release_bundle(publish_dir, candidate["producing_commit"], candidate_bytes, explorer_files)
 
     written: list[Path] = []
     try:
         for rel, data in explorer_files.items():
-            _write_atomic(publish_dir / rel, data)
+            _write_atomic(publish_dir / rel, data, mode=0o644)
             written.append(rel)
-        _write_atomic(target, candidate_bytes)
-    except BaseException:
-        _restore_active_targets(publish_dir, written, prior_bytes, dir_existed)
+        _write_atomic(target, candidate_bytes, mode=0o644)
+    except BaseException as exc:
+        try:
+            _restore_active_targets(publish_dir, written, prior_bytes, dir_existed, prior_modes)
+        except OSError as restore_exc:
+            raise restore_exc from exc
         raise
 
     _prune_obsolete_managed(publish_dir, previous_managed, set(explorer_files))

@@ -122,6 +122,12 @@ test("isAllowedArchiveUrl allows exact HTTPS host match and rejects unsafe autho
     "https://web.archive.org/web/1 23",
     "https://web.archive.org/web/1\t23",
     "https://web.archive.org/web/1\n23",
+    "https://web.archive.org/web/1\x0023",
+    "https://web.archive.org/web/1\x1f23",
+    "https://web.archive.org/web/1\x7f23",
+    "https://web.archive.org/web/1\u008023",
+    "https://web.archive.org/web/1\u008523",
+    "https://web.archive.org/web/1\u009f23",
     "https://[::1]/web/123",
     "https://[::1/web/123",
     "https://sub.web.archive.org/web/123",
@@ -158,6 +164,8 @@ test("validateAttributionLink permits http/https without userinfo or whitespace"
     "https://example.com/docs ",
     "https://example.com/a b",
     "https://example.com/a\nb",
+    "https://example.com/a\u0080b",
+    "https://example.com/a\u009fb",
     "",
     null,
     undefined,
@@ -240,6 +248,15 @@ test("validateComparisonPayload rejects malformed roots, commits, counts, status
     () => validateComparisonPayload(makeCloudflareComparison({ attribution: "CC BY 4.0" })),
     /attribution/i,
   );
+  for (const attrKey of ["license", "license_url", "authors", "source_url", "modifications"]) {
+    const emptyAttr = makeCloudflareComparison();
+    emptyAttr.attribution[attrKey] = "   ";
+    assert.throws(
+      () => validateComparisonPayload(emptyAttr),
+      /attribution/i,
+      `Expected whitespace-only attribution.${attrKey} to be rejected`,
+    );
+  }
   assert.throws(
     () =>
       validateComparisonPayload(
@@ -399,10 +416,12 @@ test("static explorer assets are self-contained, free of innerHTML, and expose r
   const htmlPath = path.join(explorerDir, "index.html");
   const cssPath = path.join(explorerDir, "styles.css");
   const jsPath = path.join(explorerDir, "app.js");
+  const libPath = path.join(explorerDir, "lib.js");
 
   const html = fs.readFileSync(htmlPath, "utf8");
   const css = fs.readFileSync(cssPath, "utf8");
   const js = fs.readFileSync(jsPath, "utf8");
+  const libJs = fs.readFileSync(libPath, "utf8");
 
   assert.match(html, /<link\b[^>]*href=["']\.\/styles\.css["'][^>]*>/i);
   assert.match(html, /<script\b[^>]*src=["']\.\/app\.js["'][^>]*>/i);
@@ -412,9 +431,11 @@ test("static explorer assets are self-contained, free of innerHTML, and expose r
   assert.doesNotMatch(css, /url\(["']?https?:\/\//i);
   assert.doesNotMatch(js, /https?:\/\//i);
 
-  assert.doesNotMatch(js, /\.innerHTML\s*=/);
-  assert.doesNotMatch(js, /\binsertAdjacentHTML\b/);
-  assert.doesNotMatch(js, /\bdocument\.write\b/);
+  for (const scriptSource of [js, libJs]) {
+    assert.doesNotMatch(scriptSource, /\.innerHTML\s*=/);
+    assert.doesNotMatch(scriptSource, /\binsertAdjacentHTML\b/);
+    assert.doesNotMatch(scriptSource, /\bdocument\.write\b/);
+  }
 
   for (const attr of [
     "data-summary-words",
@@ -436,5 +457,5 @@ test("static explorer assets are self-contained, free of innerHTML, and expose r
   }
 
   assert.match(html, /aria-live=["']polite["']/i);
-  assert.doesNotMatch(html + css + js, /[\u2013\u2014]/, "UI files must not use em or en dashes");
+  assert.doesNotMatch(html + css + js + libJs, /[\u2013\u2014]/, "UI files must not use em or en dashes");
 });

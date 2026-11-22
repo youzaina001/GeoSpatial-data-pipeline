@@ -32,6 +32,10 @@ test-cov:
 
 test-explorer:
 	@if command -v node >/dev/null 2>&1; then \
+		node --check explorer/app.js && \
+		node --check explorer/lib.js && \
+		node --check tests/cdp_driver.mjs && \
+		node --check tests/browser_check.mjs && \
 		node --test tests/test_explorer.mjs; \
 	else \
 		echo "node not found on PATH; skipping tests/test_explorer.mjs"; \
@@ -56,7 +60,7 @@ demo:
 
 preview: demo
 	@set -e; \
-	latest_run=$$(uv run python -c 'import pathlib, sys; runs = sorted(p for p in pathlib.Path(sys.argv[1]).glob("*") if p.is_dir()); print(runs[-1]) if runs else sys.exit(1)' "$(DATA_ROOT)/demo/cloudflare-ai-crawl-control/runs") || { \
+	latest_run=$$(uv run python -c 'import pathlib, sys; runs = sorted(p for p in pathlib.Path(sys.argv[1]).glob("*") if p.is_dir() and (p / "comparison.json").is_file()); print(runs[-1]) if runs else sys.exit(1)' "$(DATA_ROOT)/demo/cloudflare-ai-crawl-control/runs") || { \
 		echo "No Cloudflare demo run found under $(DATA_ROOT)/demo/cloudflare-ai-crawl-control/runs" >&2; \
 		exit 1; \
 	}; \

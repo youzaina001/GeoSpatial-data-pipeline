@@ -6,16 +6,16 @@
 - Read `docs/adr/` for architectural boundaries. `0016` to `0019` cover crawl freshness: archived sources and offline fixtures (`0016`), build and promote publication (`0017`), the prose matching rule and DuckDB metrics (`0018`), and the manifest and output contracts (`0019`). `0021` archives the satellite example, `0022` names the project `geocrawl`, and `0023` covers the static explorer and unified release bundle. `0001` (portfolio, not operations) still applies. `0002` to `0015` and `0020` are archived with the satellite example.
 - The archived satellite example (code, fixtures, Airflow DAG, Databricks bundle, tests, glossary) lives under `archive/v1-satellite/`, and the Kubernetes prior art under `archive/v0/`. Neither is installed, tested or type checked.
 - Crawl freshness code lives under `src/geocrawl/`: `cli.py` (`geocrawl build`, `promote` and `demo`), `manifest.py` (manifest loading, checksums, archive host allowlist), `extract.py` (visible prose), `matching.py` (word runs), `metrics.py` (DuckDB metrics and checks) and `publish.py` (commit stamping, build, promote, demo). Its fixtures are `fixtures/handwritten/` and `fixtures/cloudflare-ai-crawl-control/`, and its Python tests are `tests/test_crawl_*.py`.
-- The static comparison explorer lives under `explorer/` (`index.html`, `styles.css`, `app.js`, `lib.js`: zero-build HTML, CSS and ES modules). Its Node unit tests live in `tests/test_explorer.mjs` and its headless Chrome DevTools suite in `tests/browser_check.mjs`.
+- The static comparison explorer lives under `explorer/` (`index.html`, `styles.css`, `app.js`, `lib.js`: zero-build HTML, CSS and ES modules). Its Node unit tests live in `tests/test_explorer.mjs` and its headless Chrome DevTools suite in `tests/browser_check.mjs` (backed by `tests/cdp_driver.mjs`).
 
 ## Local verification
 
-- `make check`: runs `pytest tests/` (`test`), `ruff check` (`lint` on `src/ tests/`), `mypy src/ tests/` (`typecheck`) and `node --test tests/test_explorer.mjs` (`test-explorer`, when `node` is on `PATH`).
-- `make test-explorer`: runs `node --test tests/test_explorer.mjs` when `node` is on `PATH`.
-- `make test-browser`: runs `node tests/browser_check.mjs` against headless Google Chrome.
+- `make check`: runs `pytest tests/` (`test`), `ruff check` (`lint` on `src/ tests/`), `mypy src/ tests/` (`typecheck`) and `test-explorer` (when `node` is on `PATH`).
+- `make test-explorer`: runs `node --check` on `explorer/app.js`, `explorer/lib.js`, `tests/cdp_driver.mjs`, `tests/browser_check.mjs`, plus `node --test tests/test_explorer.mjs` when `node` is on `PATH`.
+- `make test-browser`: runs `node tests/browser_check.mjs` against headless Google Chrome (requires Node >= 22 for global `WebSocket`).
 - `make demo`: builds offline candidate comparisons for the handwritten and Cloudflare fixtures under `data/demo/`. It refuses to run when either fixture folder has uncommitted changes.
 - `make preview`: builds the offline demo, promotes the latest Cloudflare candidate into `data/site/`, and serves it locally via `python -m http.server`.
-- CI workflow lives in `.github/workflows/ci.yml` (`local-demo` job: install, check, explicit `node --test tests/test_explorer.mjs`, crawl demo).
+- CI workflow lives in `.github/workflows/ci.yml` (`local-demo` job: install, check, explicit `node --check` and `node --test tests/test_explorer.mjs`, crawl demo).
 
 ## Agent skills
 

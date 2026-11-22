@@ -4,10 +4,17 @@ const DEFAULT_REPO_URL = "https://github.com/youzaina001/geocrawl";
 const COMMIT_RE = /^[0-9a-f]{40}$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const SAFE_SAMPLE_ID_RE = /^[a-z0-9-]+$/;
-// eslint-disable-next-line no-control-regex
-const DISALLOWED_URL_CHARS_RE = /[\s\x00-\x1f\x7f]/;
-// eslint-disable-next-line no-control-regex
-const DISALLOWED_HOST_CHARS_RE = /[\s\x00-\x1f\x7f:/?#[\]@\\]/;
+const DISALLOWED_HOST_PUNCTUATION_RE = /[:/?#[\]@\\]/;
+
+function hasControlOrWhitespace(value) {
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x20 || (code >= 0x7f && code <= 0x9f) || /\s/.test(value[i])) {
+      return true;
+    }
+  }
+  return false;
+}
 
 const ROOT_KEYS = Object.freeze([
   "schema_version",
@@ -70,7 +77,7 @@ function compareText(a, b) {
 }
 
 function parseSafeHttpUrl(url, allowedProtocols) {
-  if (typeof url !== "string" || url.length === 0 || DISALLOWED_URL_CHARS_RE.test(url)) {
+  if (typeof url !== "string" || url.length === 0 || hasControlOrWhitespace(url)) {
     return null;
   }
   const schemeMatch = /^(https?):\/\//i.exec(url);
@@ -113,7 +120,8 @@ export function isAllowedArchiveUrl(url, archiveHost) {
   if (
     typeof archiveHost !== "string" ||
     archiveHost.length === 0 ||
-    DISALLOWED_HOST_CHARS_RE.test(archiveHost)
+    hasControlOrWhitespace(archiveHost) ||
+    DISALLOWED_HOST_PUNCTUATION_RE.test(archiveHost)
   ) {
     return false;
   }
@@ -184,10 +192,11 @@ export function validateComparisonPayload(data) {
     }
     validatedAttribution = {};
     for (const key of ATTRIBUTION_KEYS) {
-      if (typeof data.attribution[key] !== "string") {
-        throw new Error(`Invalid comparison: attribution.${key} must be a string`);
+      const value = data.attribution[key];
+      if (typeof value !== "string" || value.trim().length === 0) {
+        throw new Error(`Invalid comparison: attribution.${key} must be a non-empty string`);
       }
-      validatedAttribution[key] = data.attribution[key];
+      validatedAttribution[key] = value;
     }
   }
 

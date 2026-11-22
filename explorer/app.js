@@ -224,14 +224,9 @@ function showError(title, message) {
   getRequiredElement("[data-attribution-footer]").hidden = true;
 }
 
-function mountExplorer(comparison) {
-  const state = {
-    query: "",
-    statusFilter: "all",
-    sortBy: "new_words_desc",
-    selectedUrl: null,
-  };
+const VALID_SORT_VALUES = new Set(["new_words_desc", "new_words_asc", "url_asc"]);
 
+function mountExplorer(comparison) {
   const urlFilterInput = getRequiredElement("[data-url-filter]");
   const sortSelect = getRequiredElement("[data-sort-select]");
   const statusButtons = Array.from(document.querySelectorAll("[data-status-filter]"));
@@ -239,24 +234,51 @@ function mountExplorer(comparison) {
   const emptyListMessage = getRequiredElement("[data-empty-list]");
   const matchCount = getRequiredElement("[data-match-count]");
 
-  function updateView({ restoreFocus = false } = {}) {
-    const filtered = filterAndSortPages(comparison.pages, {
+  const initialSort = VALID_SORT_VALUES.has(sortSelect.value) ? sortSelect.value : "new_words_desc";
+  sortSelect.value = initialSort;
+
+  const state = {
+    query: urlFilterInput.value,
+    statusFilter: "all",
+    sortBy: initialSort,
+    selectedUrl: null,
+  };
+
+  for (const button of statusButtons) {
+    const isDefault = button.getAttribute("data-status-filter") === state.statusFilter;
+    button.setAttribute("aria-pressed", isDefault ? "true" : "false");
+  }
+
+  let currentFiltered = [];
+  const rowButtonsByUrl = new Map();
+
+  function selectPage(url) {
+    state.selectedUrl = url;
+    for (const [rowUrl, button] of rowButtonsByUrl.entries()) {
+      button.setAttribute("aria-current", rowUrl === state.selectedUrl ? "true" : "false");
+    }
+    const selectedPage = currentFiltered.find((page) => page.url === state.selectedUrl) ?? null;
+    renderPageDetail(selectedPage, comparison);
+  }
+
+  function renderPageList() {
+    currentFiltered = filterAndSortPages(comparison.pages, {
       query: state.query,
       statusFilter: state.statusFilter,
       sortBy: state.sortBy,
     });
 
-    if (filtered.length === 0) {
+    if (currentFiltered.length === 0) {
       state.selectedUrl = null;
-    } else if (!filtered.some((page) => page.url === state.selectedUrl)) {
-      state.selectedUrl = filtered[0].url;
+    } else if (!currentFiltered.some((page) => page.url === state.selectedUrl)) {
+      state.selectedUrl = currentFiltered[0].url;
     }
 
     const total = comparison.pages.length;
-    matchCount.textContent = `Showing ${formatInteger(filtered.length)} of ${formatInteger(total)} pages`;
+    matchCount.textContent = `Showing ${formatInteger(currentFiltered.length)} of ${formatInteger(total)} pages`;
 
-    let selectedButton = null;
-    const items = filtered.map((page) => {
+    rowButtonsByUrl.clear();
+    const items = currentFiltered.map((page) => {
       const li = document.createElement("li");
       li.className = "page-list-item";
 
@@ -264,12 +286,7 @@ function mountExplorer(comparison) {
       button.type = "button";
       button.className = "page-row";
       button.setAttribute("data-page-row", "");
-
-      const isSelected = page.url === state.selectedUrl;
-      button.setAttribute("aria-current", isSelected ? "true" : "false");
-      if (isSelected) {
-        selectedButton = button;
-      }
+      button.setAttribute("aria-current", page.url === state.selectedUrl ? "true" : "false");
 
       const urlSpan = document.createElement("span");
       urlSpan.className = "page-row-url";
@@ -281,33 +298,31 @@ function mountExplorer(comparison) {
 
       button.append(urlSpan, metaSpan);
       button.addEventListener("click", () => {
-        state.selectedUrl = page.url;
-        updateView({ restoreFocus: true });
+        selectPage(page.url);
       });
 
+      rowButtonsByUrl.set(page.url, button);
       li.appendChild(button);
       return li;
     });
 
     pageList.replaceChildren(...items);
-    emptyListMessage.hidden = filtered.length > 0;
+    emptyListMessage.hidden = currentFiltered.length > 0;
 
-    if (restoreFocus && selectedButton) {
-      selectedButton.focus();
-    }
-
-    const selectedPage = filtered.find((page) => page.url === state.selectedUrl) ?? null;
+    const selectedPage = currentFiltered.find((page) => page.url === state.selectedUrl) ?? null;
     renderPageDetail(selectedPage, comparison);
   }
 
   urlFilterInput.addEventListener("input", (event) => {
     state.query = event.target.value;
-    updateView();
+    renderPageList();
   });
 
   sortSelect.addEventListener("change", (event) => {
-    state.sortBy = event.target.value;
-    updateView();
+    state.sortBy = VALID_SORT_VALUES.has(event.target.value)
+      ? event.target.value
+      : "new_words_desc";
+    renderPageList();
   });
 
   for (const button of statusButtons) {
@@ -317,13 +332,13 @@ function mountExplorer(comparison) {
       for (const btn of statusButtons) {
         btn.setAttribute("aria-pressed", btn === button ? "true" : "false");
       }
-      updateView();
+      renderPageList();
     });
   }
 
   renderSummary(comparison);
   renderAttribution(comparison.attribution);
-  updateView();
+  renderPageList();
 
   getRequiredElement("[data-loading-status]").textContent =
     `Loaded ${comparison.sample_id} (${comparison.earlier_window} to ${comparison.later_window}).`;
@@ -371,7 +386,14 @@ async function init() {
     return;
   }
 
-  mountExplorer(comparison);
+  try {
+    mountExplorer(comparison);
+  } catch (error) {
+    showError(
+      "Failed to render comparison explorer",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
 }
 
 init();

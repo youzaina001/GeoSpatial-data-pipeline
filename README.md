@@ -29,8 +29,8 @@ make check     # pytest, Ruff, mypy and explorer JS unit tests
 run has a public `comparison.json` and a maintainer `run-summary.json`. The
 headline figure is `summary.distinct_new_words` in `comparison.json`: 1358
 for the Cloudflare sample. A small handwritten sample must report exactly one,
-or the demo stops before writing. Run `make test-browser` where Node and Google
-Chrome are installed to verify the explorer end-to-end.
+or the demo stops before writing. Run `make test-browser` where Node >= 22 and
+Google Chrome are installed to verify the explorer end-to-end.
 
 ## How it works
 

@@ -58,12 +58,22 @@ class SampleManifest:
     attribution: Attribution | None = None
 
 
+def _has_disallowed_url_char(value: str) -> bool:
+    return any(ch.isspace() or ord(ch) < 32 or 0x7F <= ord(ch) <= 0x9F for ch in value)
+
+
 def is_allowed_archive_url(url: str, archive_host: str) -> bool:
     """Return True only for absolute HTTPS URLs whose whole authority is archive_host.
 
-    Userinfo, any explicit port (valid or not) and unparsable authorities are disallowed.
+    Userinfo, any explicit port (valid or not), control characters, and whitespace are disallowed.
     """
-    if not url or any(ch.isspace() for ch in url):
+    if (
+        not url
+        or not archive_host
+        or _has_disallowed_url_char(url)
+        or _has_disallowed_url_char(archive_host)
+        or any(ch in archive_host for ch in ":/?#[]@\\")
+    ):
         return False
     try:
         parsed = urlsplit(url)
