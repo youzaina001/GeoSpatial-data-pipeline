@@ -16,6 +16,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict, TypeGuard
 
+import duckdb
+
 from geocrawl.manifest import SampleManifest, is_allowed_archive_url, load_manifest
 from geocrawl.matching import PageStatus, match_crawl
 from geocrawl.metrics import PageMetricDict, compute_metrics
@@ -176,7 +178,7 @@ def _compute(manifest_path: Path, commit: str) -> Candidate:
         matched = match_crawl(manifest)
         step = "compute_metrics"
         metrics = compute_metrics(matched.pages, matched.passages)
-    except Exception as exc:
+    except (ValueError, OSError, duckdb.Error) as exc:
         raise _StepError(step, str(exc)) from exc
 
     comparison: ComparisonDocument = {

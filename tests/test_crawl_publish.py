@@ -159,6 +159,22 @@ def test_processing_runtime_error_writes_failed_run_summary(
     assert _as_dict(mock_summary["error"])["failed_step"] == "compute_metrics"
 
 
+def test_unexpected_programming_error_propagates_without_writing_run_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest, _ = committed_sample(tmp_path / "repo")
+
+    def boom(_pages: object, _passages: object) -> object:
+        raise KeyError("pages")
+
+    monkeypatch.setattr(publish, "compute_metrics", boom)
+    runs = tmp_path / "runs"
+    with pytest.raises(KeyError, match="pages"):
+        build_run(manifest, runs)
+    assert not runs.exists()
+
+
+
 def test_clean_build_stamps_head_and_names_the_run_folder(tmp_path: Path) -> None:
     manifest, head = committed_sample(tmp_path / "repo")
     fixed = datetime(2026, 11, 21, 9, 30, 0, 123456, tzinfo=UTC)

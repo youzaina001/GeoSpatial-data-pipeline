@@ -46,6 +46,16 @@ class CrawlMetrics:
     pages: tuple[PageMetric, ...]
 
 
+def _require_utf8(value: str | None, field: str) -> str | None:
+    if value is None:
+        return None
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise ValueError(f"Invalid UTF-8 in {field}: {exc}") from exc
+    return value
+
+
 def compute_metrics(
     pages: Sequence[PageRow],
     passages: Sequence[PassageRow],
@@ -78,10 +88,10 @@ def compute_metrics(
                 "INSERT INTO pages VALUES (?, ?, ?, ?)",
                 [
                     (
-                        row.page_url,
-                        row.status,
-                        row.earlier_capture_url,
-                        row.later_capture_url,
+                        _require_utf8(row.page_url, "pages.page_url"),
+                        _require_utf8(row.status, "pages.status"),
+                        _require_utf8(row.earlier_capture_url, "pages.earlier_capture_url"),
+                        _require_utf8(row.later_capture_url, "pages.later_capture_url"),
                     )
                     for row in pages
                 ],
@@ -89,7 +99,14 @@ def compute_metrics(
         if passages:
             db.executemany(
                 "INSERT INTO passages VALUES (?, ?, ?)",
-                [(row.page_url, row.passage_id, row.word_count) for row in passages],
+                [
+                    (
+                        _require_utf8(row.page_url, "passages.page_url"),
+                        _require_utf8(row.passage_id, "passages.passage_id"),
+                        row.word_count,
+                    )
+                    for row in passages
+                ],
             )
 
         _verify_invariants(db)
