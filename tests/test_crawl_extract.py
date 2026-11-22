@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 
+from geocrawl import extract
 from geocrawl.extract import extract_article_html, extract_sentences
 
 
@@ -506,6 +507,141 @@ def test_replay_document_honors_its_original_doctype() -> None:
 
     inline_markdown = '<main><p><span class="sl-markdown-content">Alpha<table><tr><td>Cell</td></tr></table>Tail</span></p></main>'
     assert _replay_texts(inline_markdown) == ["alpha", "cell", "tail"]
+
+
+def test_many_quirks_tables_in_one_paragraph_hoist_with_constant_parser_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    real_parser = extract.LexborHTMLParser
+
+    def counting_parser(html: str, *args: object, **kwargs: object) -> extract.LexborHTMLParser:
+        nonlocal calls
+        calls += 1
+        return real_parser(html, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(extract, "LexborHTMLParser", counting_parser)
+    n = 2000
+    page = "<main><p>" + ("w<table><tr><td>c</td></tr></table>") * n + "end</p></main>"
+    article = extract_article_html(page)
+    # 1 initial parse of full replay HTML plus at most a tiny constant for shell cloning.
+    assert calls <= 10
+    expected = ["w", "c"] * n + ["end"]
+    assert _texts(article) == expected
+
+
+def test_quirks_table_hoisting_edge_wrappers_and_barriers() -> None:
+    # Adjacent tables, leading/trailing tables, id stripping, and barrier isolation.
+    html = (
+        '<main><p id="p1">'
+        '<table><tr><td>t1</td></tr></table>'
+        '<span id="s1" class="hl">a<table><tr><td>t2</td></tr></table><table><tr><td>t3</td></tr></table>b</span>'
+        '<button>ignore<table><tr><td>inner</td></tr></table></button>'
+        '<table><tr><td>t4</td></tr></table>'
+        "</p></main>"
+    )
+    article = extract_article_html(html)
+    assert article.count('id="p1"') <= 1
+    assert article.count('id="s1"') <= 1
+    assert article.count('class="hl"') == 2
+    assert _texts(article) == ["t1", "a", "t2", "t3", "b", "t4"]
+
+    # Non-chrome _P_SCOPE_BARRIERS inside <p>: outer table hoists out of <p>, while inner table
+    # stops at the <td>/<table> barrier and stays inside the outer <td>.
+    nested_html = (
+        '<main><p id="p2">before'
+        "<table><tr><td>outer<table><tr><td>nested</td></tr></table>after_inner</td></tr></table>"
+        "after_outer</p></main>"
+    )
+    nested_article = extract_article_html(nested_html)
+    assert _texts(nested_article) == ["before", "outer", "nested", "after_inner", "after_outer"]
+    nested_doc = extract.LexborHTMLParser("<!doctype html>" + nested_article)
+    assert nested_doc.css_first("p table") is None
+    assert nested_doc.css_first("td > table") is not None
+
+    # Non-chrome <object> barrier stops hoisting inside <p> as well.
+    object_html = (
+        "<main><p>before<object>wrap<table><tr><td>inner</td></tr></table>tail</object>after</p></main>"
+    )
+    object_article = extract_article_html(object_html)
+    assert _texts(object_article) == ["beforewrap", "inner", "tailafter"]
+    object_doc = extract.LexborHTMLParser("<!doctype html>" + object_article)
+    assert object_doc.css_first("p > object table") is not None
+
+    # A nested <p> inside an outer hoisted table's <td> also hoists its own inner table inside <td>.
+    nested_p_html = (
+        '<main><p id="op">oa'
+        '<table><tr><td><p id="ip">ia<table><tr><td>deep</td></tr></table>ib</p></td></tr></table>'
+        "ob</p></main>"
+    )
+    nested_p_article = extract_article_html(nested_p_html)
+    assert _texts(nested_p_article) == ["oa", "ia", "deep", "ib", "ob"]
+    nested_p_doc = extract.LexborHTMLParser("<!doctype html>" + nested_p_article)
+    assert nested_p_doc.css_first("p table") is None
+    assert nested_p_doc.css_first("td > p#ip") is not None
+    assert nested_p_doc.css_first("td > table") is not None
+
+
+def test_quirks_table_hoisting_root_paragraph_and_whitespace_shells() -> None:
+    # When sl-markdown-content is nested inside <p>, _serialize_element runs _split_quirks_tables
+    # with root=<p> directly.
+    root_p_html = (
+        '<main><p id="p1" class="lead"><span class="sl-markdown-content">'
+        "<table><tr><td>t0</td></tr></table>"
+        "lead"
+        "<table><tr><td>t1</td></tr></table>"
+        "<table><tr><td>t2</td></tr></table>"
+        "tail"
+        "</span></p></main>"
+    )
+    root_p_article = extract_article_html(root_p_html)
+    assert root_p_article.count('id="p1"') <= 1
+    assert root_p_article.count('class="lead"') == 2
+    assert root_p_article.count('class="sl-markdown-content"') == 2
+    assert _texts(root_p_article) == ["t0", "lead", "t1", "t2", "tail"]
+
+    root_p_doc = extract.LexborHTMLParser("<!doctype html>" + root_p_article)
+    article_node = root_p_doc.css_first("article")
+    assert article_node is not None
+    top_tags = [
+        child.tag
+        for child in extract._children(article_node)
+        if child.is_element_node
+    ]
+    assert top_tags == ["table", "p", "table", "table", "p"]
+
+    # When root=<p> holds only hoisted tables, the empty <p> is decomposed completely.
+    only_tables_html = (
+        '<main><p id="p1" class="lead"><span class="sl-markdown-content">'
+        "<table><tr><td>t1</td></tr></table><table><tr><td>t2</td></tr></table>"
+        "</span></p></main>"
+    )
+    only_tables_article = extract_article_html(only_tables_html)
+    assert 'id="p1"' not in only_tables_article
+    assert "<p" not in only_tables_article
+    assert _texts(only_tables_article) == ["t1", "t2"]
+
+    # Whitespace-only sibling/split shells preserve spacing and document order around tables.
+    spaced = "<main><p><span>a</span><span> </span><span>b</span><table><tr><td>x</td></tr></table></p></main>"
+    assert _texts(spaced) == ["a b", "x"]
+
+    ws_between = "<main><p><span>a</span><span> </span><table><tr><td>x</td></tr></table><span>b</span></p></main>"
+    ws_between_article = extract_article_html(ws_between)
+    assert _texts(ws_between_article) == ["a", "x", "b"]
+    ws_doc = extract.LexborHTMLParser("<!doctype html>" + ws_between_article)
+    ws_article_node = ws_doc.css_first("article")
+    assert ws_article_node is not None
+    assert [
+        c.tag for c in extract._children(ws_article_node) if c.is_element_node
+    ] == ["p", "table", "p"]
+
+    ws_split_shell = (
+        '<main><p><span>a</span><span class="sp"> <table><tr><td>x</td></tr></table> </span>'
+        "<span>b</span></p></main>"
+    )
+    ws_split_article = extract_article_html(ws_split_shell)
+    assert ws_split_article.count('class="sp"') == 2
+    assert _texts(ws_split_article) == ["a", "x", "b"]
 
 
 def test_hidden_html_root_drops_all_prose_and_replay_containers() -> None:
