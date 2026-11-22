@@ -23,7 +23,14 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: make install
-      - name: Check (test, lint, typecheck)
+      - name: Check (test, lint, typecheck, explorer)
         run: make check
+      - name: Check explorer JS syntax and run unit tests
+        run: |
+          node --check explorer/app.js
+          node --check explorer/lib.js
+          node --check tests/cdp_driver.mjs
+          node --check tests/browser_check.mjs
+          node --test tests/test_explorer.mjs
       - name: Run offline crawl freshness demo
         run: make demo

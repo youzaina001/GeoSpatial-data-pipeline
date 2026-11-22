@@ -29,6 +29,12 @@ def main(argv: list[str] | None = None) -> int:
     promote_parser.add_argument("run", type=Path, help="Run folder or releases/<commit> folder")
     promote_parser.add_argument("--publish-dir", type=Path, required=True)
     promote_parser.add_argument(
+        "--explorer-dir",
+        type=Path,
+        default=None,
+        help="Directory of static explorer assets to bundle (defaults to release folder or explorer/)",
+    )
+    promote_parser.add_argument(
         "--yes", action="store_true", help="Replace the published comparison"
     )
 
@@ -48,7 +54,9 @@ def _run(args: argparse.Namespace) -> int:
         if args.command == "build":
             print(f"Built candidate {build_run(args.manifest, args.runs_dir)}")
         elif args.command == "promote":
-            result = promote(args.run, args.publish_dir, confirm=args.yes)
+            result = promote(
+                args.run, args.publish_dir, confirm=args.yes, explorer_dir=args.explorer_dir
+            )
             print(result.preview)
             if not result.published:
                 print("Not published. Re-run with --yes to replace the published comparison.", file=sys.stderr)
