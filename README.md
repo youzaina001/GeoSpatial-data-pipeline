@@ -21,14 +21,16 @@ git clone https://github.com/youzaina001/GeoSpatial-data-pipeline.git geocrawl
 cd geocrawl
 make install   # pinned dependencies and dev tools
 make demo      # compare the bundled samples
-make check     # tests, Ruff and mypy
+make preview   # promote the Cloudflare sample to data/site/ and serve locally
+make check     # pytest, Ruff, mypy and explorer JS unit tests
 ```
 
 `make demo` writes one run per sample under `data/demo/<sample>/runs/`. Each
 run has a public `comparison.json` and a maintainer `run-summary.json`. The
 headline figure is `summary.distinct_new_words` in `comparison.json`: 1358
-for the Cloudflare sample. A small
-handwritten sample must report exactly one, or the demo stops before writing.
+for the Cloudflare sample. A small handwritten sample must report exactly one,
+or the demo stops before writing. Run `make test-browser` where Node and Google
+Chrome are installed to verify the explorer end-to-end.
 
 ## How it works
 
@@ -40,15 +42,20 @@ handwritten sample must report exactly one, or the demo stops before writing.
 3. **Match three-word runs** so moved, copied and lightly edited text is not
    counted twice, then **aggregate and check** the figures in DuckDB
    ([ADR 0018](docs/adr/0018-python-and-duckdb.md)).
-4. **Build, then promote.** `geocrawl build` writes a candidate and never
-   publishes. `geocrawl promote <run> --publish-dir <site> --yes` publishes it
-   and keeps each release for rollback
-   ([ADR 0017](docs/adr/0017-serve-precomputed-comparisons.md)).
+4. **Build, promote and publish.** `geocrawl build` writes a candidate and never
+   publishes. `geocrawl promote <run> --publish-dir <site> --yes` bundles
+   `explorer/` with `comparison.json` under `<site>/releases/<commit>/` and
+   publishes `<site>/` atomically
+   ([ADR 0017](docs/adr/0017-serve-precomputed-comparisons.md),
+   [ADR 0023](docs/adr/0023-static-explorer-and-release-bundle.md)). For
+   Cloudflare Pages, copy the active files in `<site>/` excluding `releases/`
+   to a staging directory and run `wrangler pages deploy`.
 
 ## What's next
 
-A static explorer where visitors browse the published comparison, then more
-archived page pairs. Open work is tracked in
+The static explorer is live under `explorer/` (`make preview` serves it locally).
+Next is adding the remaining 11 archived page pairs for Cloudflare AI Crawl
+Control. Open work is tracked in
 [GitHub Issues](https://github.com/youzaina001/GeoSpatial-data-pipeline/issues).
 
 ## Repository map
@@ -56,8 +63,9 @@ archived page pairs. Open work is tracked in
 | Path | What it holds |
 | --- | --- |
 | `src/geocrawl/` | The pipeline and the `geocrawl` CLI |
+| `explorer/` | Zero-build static comparison explorer (HTML, CSS, ES modules) |
 | `fixtures/` | Bundled archive samples and manifests |
-| `tests/` | Test suite (`make check`) |
+| `tests/` | Python, Node (`node --test`) and Chrome browser checks |
 | `GLOSSARY.md`, `docs/adr/` | Domain terms and design decisions |
 | `archive/` | Earlier projects, kept for the record and not supported |
 
