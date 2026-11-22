@@ -105,6 +105,24 @@ a:hover {
   gap: 0.65rem;
 }
 
+.explorer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
 .eyebrow {
   margin: 0;
   display: flex;
