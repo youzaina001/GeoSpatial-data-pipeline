@@ -767,3 +767,91 @@ def test_nested_strong_inside_standalone_strong_stays_one_headline() -> None:
     assert _article_texts("<p>Use <strong><strong>robots.txt</strong></strong> rules.</p>") == [
         "use robots.txt rules"
     ]
+
+
+def test_strong_inside_link_span_or_summary_outside_prose_block_is_not_prose() -> None:
+    from pathlib import Path
+
+    # Outside any prose block, <strong> wrapped in <a>, <span>, or <summary> is not prose.
+    assert _article_texts('<a class="button" href="#"><strong>Get started</strong></a><p>Body.</p>') == [
+        "body"
+    ]
+    assert _article_texts("<span><strong>Badge</strong></span><p>Body.</p>") == ["body"]
+    assert _article_texts(
+        "<details><summary><strong>More</strong></summary><p>Expanded prose.</p></details>"
+    ) == ["expanded prose"]
+    assert _article_texts(
+        '<div><a href="#"><strong>Link CTA</strong></a><span><strong>Tag</strong></span></div>'
+    ) == []
+
+    # Replay extraction agrees, including when sl-markdown-content is on an outer container
+    # or on a wrapper around <strong>.
+    assert _replay_texts(
+        '<main><div class="sl-markdown-content">'
+        '<a class="button" href="#"><strong>Get started</strong></a>'
+        "<span><strong>Badge</strong></span>"
+        "<details><summary><strong>More</strong></summary><p>Expanded prose.</p></details>"
+        "</div></main>"
+    ) == ["expanded prose"]
+    assert _replay_texts(
+        '<main><a href="#"><span class="sl-markdown-content"><strong>Link CTA</strong></span></a>'
+        "<p>Body.</p></main>"
+    ) == []
+    assert _replay_texts(
+        '<main><a href="#"><strong><span class="sl-markdown-content">Link CTA</span></strong></a>'
+        "<p>Body.</p></main>"
+    ) == []
+    assert _replay_texts(
+        '<main><span><strong><span class="sl-markdown-content">Badge</span></strong></span></main>'
+    ) == []
+    assert _replay_texts(
+        '<main><details><summary><strong><span class="sl-markdown-content">More</span></strong></summary>'
+        "<p>Expanded prose.</p></details></main>"
+    ) == []
+    assert _replay_texts(
+        '<main><a href="#"><strong class="sl-markdown-content">Link CTA</strong></a></main>'
+    ) == []
+    assert _replay_texts(
+        '<main><span><strong class="sl-markdown-content">Badge</strong></span></main>'
+    ) == []
+    assert _replay_texts(
+        '<main><details><summary><strong class="sl-markdown-content">More</strong></summary></details></main>'
+    ) == []
+    assert _replay_texts(
+        '<main><a href="#"><div class="sl-markdown-content"><strong>Link CTA</strong></div></a></main>'
+    ) == []
+    assert _replay_texts(
+        '<main><a href="#"><div class="sl-markdown-content"><p>Body.</p></div></a></main>'
+    ) == ["body"]
+
+    # Inside a prose block (<p>, <li>, etc.), <strong> inside <a> or <span> still counts as prose.
+    assert _article_texts('<p><a href="#"><strong>AI Audit</strong></a></p>') == ["ai audit"]
+    assert _article_texts("<ul><li><span><strong>Item</strong></span></li></ul>") == ["item"]
+    assert _replay_texts(
+        '<main><div class="sl-markdown-content">'
+        '<p><a href="#"><strong>AI Audit</strong></a></p>'
+        "<ul><li><span><strong>Item</strong></span></li></ul>"
+        "</div></main>"
+    ) == ["ai audit", "item"]
+
+    # Standalone <strong> directly inside <article>, <main>, or layout <div>/<section>
+    # (including nested <strong><em><strong>...</strong></em></strong>) still counts.
+    assert _article_texts("<section><div><strong>Section headline</strong></div></section>") == [
+        "section headline"
+    ]
+    assert _article_texts("<div><strong><em><strong>Nested headline</strong></em></strong></div>") == [
+        "nested headline"
+    ]
+    assert _replay_texts(
+        '<main><strong><span class="sl-markdown-content">Headline</span></strong></main>'
+    ) == ["headline"]
+
+    # All 8 bundled HTML fixtures still extract 299 sentences across the 8 files.
+    repo_root = Path(__file__).resolve().parents[1]
+    fixture_files = sorted((repo_root / "fixtures").glob("*/*/*.html"))
+    assert len(fixture_files) == 8
+    total_sentences = sum(
+        len(extract_sentences(path.read_text(encoding="utf-8"))) for path in fixture_files
+    )
+    assert total_sentences == 299
+

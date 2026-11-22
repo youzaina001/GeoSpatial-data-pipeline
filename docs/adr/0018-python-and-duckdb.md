@@ -16,7 +16,7 @@ Python supplies two tables for each comparison.
 Python reads the article HTML recorded in the manifest and keeps visible prose blocks:
 
 * headings, paragraphs, list items, blockquotes, table cells and `<figcaption>` captions;
-* a `<strong>` element outside any prose block (whether directly inside the article body or inside a layout wrapper `<div>`). Cloudflare's changelog writes each entry's headline this way, and its overview page wraps related-product titles inside card `<div>` containers.
+* a `<strong>` element outside any prose block when it sits directly inside the article body or inside a layout wrapper (`<div>` or `<section>`), not inside inline or control wrappers such as `<a>`, `<span>` or `<summary>`. Cloudflare's changelog writes each entry's headline this way, and its overview page wraps related-product titles inside card `<div>` containers.
 
 Text outside those blocks, such as a bare link styled as a button, is not prose. Prose inside a `<details>` element (including an initially collapsed `<details>` without `open`) counts as visible article prose unless the `<details>` element or an ancestor is hidden. Python also drops:
 
