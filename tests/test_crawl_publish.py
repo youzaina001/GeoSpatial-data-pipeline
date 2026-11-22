@@ -562,3 +562,223 @@ def test_promotion_refuses_duplicate_json_members(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="Invalid comparison"):
         promote(run_dir, tmp_path / "site", confirm=True)
     assert not (tmp_path / "site").exists()
+
+
+def _write_explorer_dir(root: Path, files: dict[str, bytes]) -> Path:
+    root.mkdir(parents=True, exist_ok=True)
+    for rel, content in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    return root
+
+
+def test_confirmed_promotion_bundles_explorer_assets_and_release_manifest(tmp_path: Path) -> None:
+    manifest, head = committed_sample(tmp_path / "repo")
+    run_dir = build_run(manifest, tmp_path / "runs")
+    site = tmp_path / "site"
+
+    preview_result = promote(run_dir, site, confirm=False)
+    assert preview_result.published is False
+    assert "explorer bundle" in preview_result.preview.lower()
+    assert str(REPO / "explorer") in preview_result.preview
+    assert not site.exists()
+
+    result = promote(run_dir, site, confirm=True)
+    assert result.published is True
+    assert "explorer bundle" in result.preview.lower()
+    assert str(REPO / "explorer") in result.preview
+
+    for asset in ("index.html", "styles.css", "app.js", "lib.js"):
+        expected = (REPO / "explorer" / asset).read_bytes()
+        assert (site / asset).read_bytes() == expected
+        assert (site / "releases" / head / asset).read_bytes() == expected
+
+    candidate = (run_dir / "comparison.json").read_bytes()
+    assert (site / "comparison.json").read_bytes() == candidate
+    assert (site / "releases" / head / "comparison.json").read_bytes() == candidate
+    assert not (site / ".bundle-manifest.json").exists()
+    bundle_manifest = _json(site / "releases" / head / ".bundle-manifest.json")
+    assert bundle_manifest == {"files": ["app.js", "index.html", "lib.js", "styles.css"]}
+
+
+def test_rollback_restores_release_explorer_assets_and_removes_newer_stale_files(
+    tmp_path: Path,
+) -> None:
+    first, second, first_commit, second_commit = _two_releases(tmp_path)
+    v1_explorer = _write_explorer_dir(
+        tmp_path / "v1_explorer",
+        {"index.html": b"<html>v1</html>\n", "app.js": b"// v1\n"},
+    )
+    v2_explorer = _write_explorer_dir(
+        tmp_path / "v2_explorer",
+        {
+            "index.html": b"<html>v2</html>\n",
+            "app.js": b"// v2\n",
+            "extra.js": b"// extra\n",
+            "assets/v2.css": b"body{}\n",
+        },
+    )
+    site = tmp_path / "site"
+
+    promote(first, site, confirm=True, explorer_dir=v1_explorer)
+    (site / "robots.txt").write_text("User-agent: *\n", encoding="utf-8")
+    promote(second, site, confirm=True, explorer_dir=v2_explorer)
+    assert (site / "index.html").read_bytes() == b"<html>v2</html>\n"
+    assert (site / "extra.js").is_file()
+    assert (site / "assets" / "v2.css").is_file()
+
+    rollback = promote(site / "releases" / first_commit, site, confirm=True)
+    assert rollback.published is True
+    assert (site / "index.html").read_bytes() == b"<html>v1</html>\n"
+    assert (site / "app.js").read_bytes() == b"// v1\n"
+    assert (site / "comparison.json").read_bytes() == (first / "comparison.json").read_bytes()
+    assert not (site / "extra.js").exists()
+    assert not (site / "assets").exists()
+    assert (site / "robots.txt").read_text(encoding="utf-8") == "User-agent: *\n"
+    assert (site / "releases" / first_commit / "comparison.json").is_file()
+    assert (site / "releases" / second_commit / "comparison.json").is_file()
+
+
+def test_re_promoting_same_commit_with_modified_explorer_aborts(tmp_path: Path) -> None:
+    manifest, head = committed_sample(tmp_path / "repo")
+    first_run = build_run(manifest, tmp_path / "runs")
+    second_run = build_run(manifest, tmp_path / "runs")
+    v1_explorer = _write_explorer_dir(tmp_path / "v1_explorer", {"index.html": b"<html>v1</html>\n"})
+    v2_explorer = _write_explorer_dir(tmp_path / "v2_explorer", {"index.html": b"<html>v2</html>\n"})
+    site = tmp_path / "site"
+
+    promote(first_run, site, confirm=True, explorer_dir=v1_explorer)
+    before_index = (site / "index.html").read_bytes()
+    before_comparison = (site / "comparison.json").read_bytes()
+
+    with pytest.raises(ValueError, match="different release bundle"):
+        promote(second_run, site, confirm=True, explorer_dir=v2_explorer)
+
+    assert (site / "index.html").read_bytes() == before_index
+    assert (site / "comparison.json").read_bytes() == before_comparison
+    assert (site / "releases" / head / "index.html").read_bytes() == before_index
+
+
+def test_failed_rename_leaves_explorer_and_comparison_intact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first, second, _, _ = _two_releases(tmp_path)
+    v1_explorer = _write_explorer_dir(
+        tmp_path / "v1_explorer",
+        {"index.html": b"<html>v1</html>\n", "app.js": b"// v1\n"},
+    )
+    v2_explorer = _write_explorer_dir(
+        tmp_path / "v2_explorer",
+        {
+            "index.html": b"<html>v2</html>\n",
+            "app.js": b"// v2\n",
+            "extra.js": b"// extra\n",
+            "assets/v2.css": b"body{}\n",
+        },
+    )
+    site = tmp_path / "site"
+    promote(first, site, confirm=True, explorer_dir=v1_explorer)
+    before_comparison = (site / "comparison.json").read_bytes()
+    before_index = (site / "index.html").read_bytes()
+    before_app = (site / "app.js").read_bytes()
+
+    real_replace = os.replace
+
+    def failing_replace(src: str | os.PathLike[str], dst: str | os.PathLike[str]) -> None:
+        if Path(dst) == site / "comparison.json":
+            raise OSError("disk full")
+        real_replace(src, dst)
+
+    monkeypatch.setattr(publish.os, "replace", failing_replace)
+    with pytest.raises(OSError, match="disk full"):
+        promote(second, site, confirm=True, explorer_dir=v2_explorer)
+
+    assert (site / "comparison.json").read_bytes() == before_comparison
+    assert (site / "index.html").read_bytes() == before_index
+    assert (site / "app.js").read_bytes() == before_app
+    assert not (site / "extra.js").exists()
+    assert not (site / "assets").exists()
+    assert [p for p in site.rglob("*") if p.name.endswith(".tmp")] == []
+
+
+def test_promote_cli_accepts_explorer_dir_and_rejects_missing_index(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    manifest, head = committed_sample(tmp_path / "repo")
+    run_dir = build_run(manifest, tmp_path / "runs")
+    site = tmp_path / "site"
+
+    missing_index = _write_explorer_dir(tmp_path / "missing_index", {"app.js": b"// no html\n"})
+    assert (
+        main(["promote", str(run_dir), "--publish-dir", str(site), "--explorer-dir", str(missing_index)])
+        == 1
+    )
+    assert "index.html" in capsys.readouterr().err
+    assert not site.exists()
+
+    assert (
+        main(
+            [
+                "promote",
+                str(run_dir),
+                "--publish-dir",
+                str(site),
+                "--explorer-dir",
+                str(missing_index),
+                "--yes",
+            ]
+        )
+        == 1
+    )
+    assert "index.html" in capsys.readouterr().err
+    assert not site.exists()
+
+    symlink_explorer = _write_explorer_dir(tmp_path / "symlink_explorer", {"index.html": b"<html>ok</html>\n"})
+    secret = tmp_path / "secret.txt"
+    secret.write_text("secret", encoding="utf-8")
+    (symlink_explorer / "leak.txt").symlink_to(secret)
+    assert (
+        main(
+            [
+                "promote",
+                str(run_dir),
+                "--publish-dir",
+                str(site),
+                "--explorer-dir",
+                str(symlink_explorer),
+                "--yes",
+            ]
+        )
+        == 1
+    )
+    assert "symlink" in capsys.readouterr().err.lower()
+    assert not site.exists()
+
+    good_explorer = _write_explorer_dir(
+        tmp_path / "good_explorer",
+        {
+            "index.html": b"<html>custom</html>\n",
+            "styles.css": b"body { color: #111; }\n",
+            ".DS_Store": b"ignored",
+        },
+    )
+    assert (
+        main(
+            [
+                "promote",
+                str(run_dir),
+                "--publish-dir",
+                str(site),
+                "--explorer-dir",
+                str(good_explorer),
+                "--yes",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert (site / "index.html").read_bytes() == b"<html>custom</html>\n"
+    assert (site / "releases" / head / "styles.css").read_bytes() == b"body { color: #111; }\n"
+    assert not (site / ".DS_Store").exists()
+    assert not (site / "releases" / head / ".DS_Store").exists()
