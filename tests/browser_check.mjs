@@ -11,6 +11,14 @@ import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_CHROME_BIN = process.env.CHROME_BIN || "/usr/bin/google-chrome";
+const DEFAULT_CHROME_STARTUP_TIMEOUT_MS = (() => {
+  const raw = process.env.CHROME_STARTUP_TIMEOUT_MS;
+  if (!raw) {
+    return 15000;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 15000;
+})();
 const VIEWPORTS = [
   { name: "desktop-1440", width: 1440, height: 900, mobile: false },
   { name: "mobile-390", width: 390, height: 844, mobile: true },
@@ -387,7 +395,10 @@ class CdpClient {
   }
 }
 
-async function launchChrome(userDataDir) {
+async function launchChrome(
+  userDataDir,
+  { onSpawn, startupTimeoutMs = DEFAULT_CHROME_STARTUP_TIMEOUT_MS } = {},
+) {
   const args = [
     "--headless=new",
     "--no-sandbox",
@@ -403,6 +414,7 @@ async function launchChrome(userDataDir) {
   const proc = spawn(DEFAULT_CHROME_BIN, args, {
     stdio: ["ignore", "pipe", "pipe"],
   });
+  onSpawn?.(proc);
 
   const stderrChunks = [];
   const wsUrl = await new Promise((resolve, reject) => {
@@ -410,13 +422,15 @@ async function launchChrome(userDataDir) {
     const timer = setTimeout(() => {
       if (!settled) {
         settled = true;
-        reject(
-          new Error(
-            `Timed out waiting for headless Chrome DevTools URL. Stderr:\n${stderrChunks.join("")}`,
-          ),
-        );
+        terminateChrome(proc, null).finally(() => {
+          reject(
+            new Error(
+              `Timed out waiting for headless Chrome DevTools URL. Stderr:\n${stderrChunks.join("")}`,
+            ),
+          );
+        });
       }
-    }, 15000);
+    }, startupTimeoutMs);
 
     const onOutput = (chunk) => {
       const text = chunk.toString("utf8");
@@ -485,14 +499,22 @@ async function terminateChrome(proc, cdp) {
       proc.once("exit", onExit);
     });
 
-  if (await waitForExit(1500)) {
+  if (cdp && (await waitForExit(1500))) {
     return;
   }
-  proc.kill("SIGTERM");
+  try {
+    proc.kill("SIGTERM");
+  } catch {
+    return;
+  }
   if (await waitForExit(2000)) {
     return;
   }
-  proc.kill("SIGKILL");
+  try {
+    proc.kill("SIGKILL");
+  } catch {
+    return;
+  }
   await waitForExit(2000);
 }
 
@@ -1062,7 +1084,11 @@ async function main() {
     const comparison = JSON.parse(fs.readFileSync(comparisonPath, "utf8"));
 
     siteServer = await startStaticServer(siteDir);
-    const launched = await launchChrome(chromeUserDataDir);
+    const launched = await launchChrome(chromeUserDataDir, {
+      onSpawn: (proc) => {
+        chromeProc = proc;
+      },
+    });
     chromeProc = launched.proc;
     cdp = await CdpClient.connect(launched.wsUrl);
     const { sessionId } = await cdp.createSession();

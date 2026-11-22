@@ -55,12 +55,13 @@ demo:
 	uv run geocrawl demo --output-dir $(DATA_ROOT)/demo
 
 preview: demo
-	@latest_run=$$(uv run python -c 'import pathlib, sys; runs = sorted(p for p in pathlib.Path(sys.argv[1]).glob("*") if p.is_dir()); print(runs[-1]) if runs else sys.exit(1)' "$(DATA_ROOT)/demo/cloudflare-ai-crawl-control/runs") || { \
+	@set -e; \
+	latest_run=$$(uv run python -c 'import pathlib, sys; runs = sorted(p for p in pathlib.Path(sys.argv[1]).glob("*") if p.is_dir()); print(runs[-1]) if runs else sys.exit(1)' "$(DATA_ROOT)/demo/cloudflare-ai-crawl-control/runs") || { \
 		echo "No Cloudflare demo run found under $(DATA_ROOT)/demo/cloudflare-ai-crawl-control/runs" >&2; \
 		exit 1; \
 	}; \
-	uv run geocrawl promote "$$latest_run" --publish-dir "$(SITE_DIR)" --yes; \
-	echo "Serving $(SITE_DIR) at http://127.0.0.1:$(PREVIEW_PORT)/"; \
+	uv run geocrawl promote "$$latest_run" --publish-dir "$(SITE_DIR)" --yes && \
+	echo "Serving $(SITE_DIR) at http://127.0.0.1:$(PREVIEW_PORT)/" && \
 	uv run python -m http.server "$(PREVIEW_PORT)" --bind 127.0.0.1 --directory "$(SITE_DIR)"
 
 clean:
