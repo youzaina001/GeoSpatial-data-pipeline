@@ -808,6 +808,21 @@ def test_strong_inside_link_span_or_summary_outside_prose_block_is_not_prose() -
         '<main><details><summary><strong><span class="sl-markdown-content">More</span></strong></summary>'
         "<p>Expanded prose.</p></details></main>"
     ) == []
+    assert _replay_texts(
+        '<main><a href="#"><strong class="sl-markdown-content">Link CTA</strong></a></main>'
+    ) == []
+    assert _replay_texts(
+        '<main><span><strong class="sl-markdown-content">Badge</strong></span></main>'
+    ) == []
+    assert _replay_texts(
+        '<main><details><summary><strong class="sl-markdown-content">More</strong></summary></details></main>'
+    ) == []
+    assert _replay_texts(
+        '<main><a href="#"><div class="sl-markdown-content"><strong>Link CTA</strong></div></a></main>'
+    ) == []
+    assert _replay_texts(
+        '<main><a href="#"><div class="sl-markdown-content"><p>Body.</p></div></a></main>'
+    ) == ["body"]
 
     # Inside a prose block (<p>, <li>, etc.), <strong> inside <a> or <span> still counts as prose.
     assert _article_texts('<p><a href="#"><strong>AI Audit</strong></a></p>') == ["ai audit"]
