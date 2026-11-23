@@ -8,7 +8,7 @@
     "license_url": "https://creativecommons.org/licenses/by/4.0/",
     "authors": "Cloudflare, Inc. and Cloudflare Documentation contributors",
     "source_url": "https://github.com/cloudflare/cloudflare-docs#license-and-legal-notices",
-    "modifications": "Extracted main article HTML (<h1 id='_top'> and sl-markdown-content) from Wayback Machine captures and removed navigation, footers, replay toolbars, scripts, and SVGs."
+    "modifications": "Extracted main article HTML (<h1 id='_top'> and sl-markdown-content) from Wayback Machine captures and removed navigation, footers, replay toolbars, scripts, and SVGs. Embedded video embeds and iframes are removed, and absolute Wayback replay prefixes are restored to the original link targets."
   },
   "earlier": [
     {
@@ -24,6 +24,83 @@
       "captured_at": "2025-10-12T00:38:51Z",
       "file": "earlier/changelog.html",
       "sha256": "e9d20fde3415e2ea29b794c0e70a15a8c4acb498cf373c0d62aaaaf713010d42"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/configuration/ai-crawl-control-with-waf/",
+      "replay_url": "https://web.archive.org/web/20251012003824/https://developers.cloudflare.com/ai-crawl-control/configuration/ai-crawl-control-with-waf/",
+      "captured_at": "2025-10-12T00:38:24Z",
+      "file": "earlier/ai-crawl-control-with-waf.html",
+      "sha256": "8bf2d57ca253247daf238f9fc28ad5e0092cce5dab0bb516c4e90625e1be85c1"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/manage-ai-crawlers/",
+      "replay_url": "https://web.archive.org/web/20251005132617/https://developers.cloudflare.com/ai-crawl-control/features/manage-ai-crawlers/",
+      "captured_at": "2025-10-05T13:26:17Z",
+      "file": "earlier/manage-ai-crawlers.html",
+      "sha256": "a9615a4ad22819ca8cfd823f0614722b7e986be340f2b0f88afb50d6602ab282"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/",
+      "replay_url": "https://web.archive.org/web/20251012003836/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/",
+      "captured_at": "2025-10-12T00:38:36Z",
+      "file": "earlier/pay-per-crawl.html",
+      "sha256": "67fe7420b45748b891200b4e4d62dc4ed9be58f0d02026424af7b0ef63c83dbd"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/crawl-pages/",
+      "replay_url": "https://web.archive.org/web/20251003124236/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/crawl-pages/",
+      "captured_at": "2025-10-03T12:42:36Z",
+      "file": "earlier/crawl-pages.html",
+      "sha256": "e2a148ecbfa7d3947f86ac7e9624173e13ffd621e717d1e836d96a6f96557a9f"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/set-up-cloudflare-account/",
+      "replay_url": "https://web.archive.org/web/20251012003742/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/set-up-cloudflare-account/",
+      "captured_at": "2025-10-12T00:37:42Z",
+      "file": "earlier/set-up-cloudflare-account.html",
+      "sha256": "8df6903850aadff1dbb4cd4e0f9a9dda82173b448c8a4cb24f03c1de7b86694d"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/verify-ai-crawler/",
+      "replay_url": "https://web.archive.org/web/20251012003758/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/verify-ai-crawler/",
+      "captured_at": "2025-10-12T00:37:58Z",
+      "file": "earlier/verify-ai-crawler.html",
+      "sha256": "8bcbb4fee9d7b3bba93f410ad8f4f0a87c7d8c29d2e448f1d46f3d44541dd302"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/monitor-activity/",
+      "replay_url": "https://web.archive.org/web/20251012003701/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/monitor-activity/",
+      "captured_at": "2025-10-12T00:37:01Z",
+      "file": "earlier/monitor-activity.html",
+      "sha256": "99e75733a5168aacf9a8d0510235a9d21d9c274c1bae036e331f6f46852f6463"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/select-crawlers-to-charge/",
+      "replay_url": "https://web.archive.org/web/20251012003821/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/select-crawlers-to-charge/",
+      "captured_at": "2025-10-12T00:38:21Z",
+      "file": "earlier/select-crawlers-to-charge.html",
+      "sha256": "3a7b3ffbc345d98ee7150f76957d8fb315d9f9c123967910e9cdc7f3bc2992a3"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/set-a-pay-per-crawl-price/",
+      "replay_url": "https://web.archive.org/web/20251012003843/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/set-a-pay-per-crawl-price/",
+      "captured_at": "2025-10-12T00:38:43Z",
+      "file": "earlier/set-a-pay-per-crawl-price.html",
+      "sha256": "3ca2ee28757fa0f0d9f2262a4d334c3c87ac1384ad236928b37e7b7f2b0be164"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/what-is-pay-per-crawl/",
+      "replay_url": "https://web.archive.org/web/20251012003735/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/what-is-pay-per-crawl/",
+      "captured_at": "2025-10-12T00:37:35Z",
+      "file": "earlier/what-is-pay-per-crawl.html",
+      "sha256": "e41b47151bfd1ea5f9bb6df9c4a2af99018cfc7a9fe8ca5217909921552dcae7"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/get-started/",
+      "replay_url": "https://web.archive.org/web/20251012003743/https://developers.cloudflare.com/ai-crawl-control/get-started/",
+      "captured_at": "2025-10-12T00:37:43Z",
+      "file": "earlier/get-started.html",
+      "sha256": "ded936cc4c6b06b586abb67da57ff3ce195572802357525dac2e10adba43b669"
     }
   ],
   "later": [
@@ -32,14 +109,91 @@
       "replay_url": "https://web.archive.org/web/20260429223141/https://developers.cloudflare.com/ai-crawl-control/",
       "captured_at": "2026-04-29T22:31:41Z",
       "file": "later/overview.html",
-      "sha256": "ed888f4775b150ec4439b4e74be4abb2bfae6a9c17299c72dedb7c2ccac72193"
+      "sha256": "ff9b36f33bb93eddbcf857683ed7954e28a7768b33f187ec71c50a4c5d60d0dc"
     },
     {
       "page_url": "https://developers.cloudflare.com/ai-crawl-control/changelog/",
       "replay_url": "https://web.archive.org/web/20260411015127/https://developers.cloudflare.com/ai-crawl-control/changelog/",
       "captured_at": "2026-04-11T01:51:27Z",
       "file": "later/changelog.html",
-      "sha256": "024e369209c6706c7911f447a6e62dbb2f3eb833315b76598d7a776e67e0b2ba"
+      "sha256": "47943e52bd0c236b5bfdea4576819cc7b8654b319904e7fd521bc8b32775f3d2"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/configuration/ai-crawl-control-with-waf/",
+      "replay_url": "https://web.archive.org/web/20260417105506/https://developers.cloudflare.com/ai-crawl-control/configuration/ai-crawl-control-with-waf/",
+      "captured_at": "2026-04-17T10:55:06Z",
+      "file": "later/ai-crawl-control-with-waf.html",
+      "sha256": "7101e4a0b82bfd20d0426c27743c05b31f55046145d8323d6a6713de84b13458"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/manage-ai-crawlers/",
+      "replay_url": "https://web.archive.org/web/20260410233318/https://developers.cloudflare.com/ai-crawl-control/features/manage-ai-crawlers/",
+      "captured_at": "2026-04-10T23:33:18Z",
+      "file": "later/manage-ai-crawlers.html",
+      "sha256": "b5fd87156cad6aaf2c921def1589d6c85bbefb4a0b8ff29440fb1e3716b2aa52"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/",
+      "replay_url": "https://web.archive.org/web/20260420004218/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/",
+      "captured_at": "2026-04-20T00:42:18Z",
+      "file": "later/pay-per-crawl.html",
+      "sha256": "4dc46cf4a9987661c2711860857e7bd5bb7b3e0ef8fae06533e73af7d34e5734"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/crawl-pages/",
+      "replay_url": "https://web.archive.org/web/20260410121239/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/crawl-pages/",
+      "captured_at": "2026-04-10T12:12:39Z",
+      "file": "later/crawl-pages.html",
+      "sha256": "ad04c26531e207f386887da8257d3d254ef8c5b7d91d7081e7148662b5f65846"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/set-up-cloudflare-account/",
+      "replay_url": "https://web.archive.org/web/20260405004024/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/set-up-cloudflare-account/",
+      "captured_at": "2026-04-05T00:40:24Z",
+      "file": "later/set-up-cloudflare-account.html",
+      "sha256": "df7958d6e742001a6efb64b29a5324dd5cae424c3e4d717519926b7e23de1528"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/verify-ai-crawler/",
+      "replay_url": "https://web.archive.org/web/20260415215445/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/verify-ai-crawler/",
+      "captured_at": "2026-04-15T21:54:45Z",
+      "file": "later/verify-ai-crawler.html",
+      "sha256": "30084610a599ccbf342717145b77843d32d3d427e170256bf0a7c1b19b22c322"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/monitor-activity/",
+      "replay_url": "https://web.archive.org/web/20260405004024/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/monitor-activity/",
+      "captured_at": "2026-04-05T00:40:24Z",
+      "file": "later/monitor-activity.html",
+      "sha256": "489dcae24aef2aa426702207412b48d8ed0fc046996ac925ccb23475a420afa1"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/select-crawlers-to-charge/",
+      "replay_url": "https://web.archive.org/web/20260405004024/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/select-crawlers-to-charge/",
+      "captured_at": "2026-04-05T00:40:24Z",
+      "file": "later/select-crawlers-to-charge.html",
+      "sha256": "7947108974cbe01c80872189ee930e475375c1d55bdf94ebdd7c3ac5c2c68fb2"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/set-a-pay-per-crawl-price/",
+      "replay_url": "https://web.archive.org/web/20260405004024/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/set-a-pay-per-crawl-price/",
+      "captured_at": "2026-04-05T00:40:24Z",
+      "file": "later/set-a-pay-per-crawl-price.html",
+      "sha256": "d9ef94685a6b8cb9f9f1f98db7f714b9b29eca4a7088f05893a54ab4e784f145"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/what-is-pay-per-crawl/",
+      "replay_url": "https://web.archive.org/web/20260417145212/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/what-is-pay-per-crawl/",
+      "captured_at": "2026-04-17T14:52:12Z",
+      "file": "later/what-is-pay-per-crawl.html",
+      "sha256": "66aa682f8c1e78c1b0cd7ebf208e49ec801ed02073c7434df7e37ad4d0ae4d49"
+    },
+    {
+      "page_url": "https://developers.cloudflare.com/ai-crawl-control/get-started/",
+      "replay_url": "https://web.archive.org/web/20260413111109/https://developers.cloudflare.com/ai-crawl-control/get-started/",
+      "captured_at": "2026-04-13T11:11:09Z",
+      "file": "later/get-started.html",
+      "sha256": "fa82e2a319cba7dc4f14d48e892b8238f75471095f8588dff4d9260c2bafecdd"
     }
   ]
 }

@@ -1,0 +1,52 @@
+<article>
+<h1 id="_top" class="astro-j6tvhyss">Monitor activity</h1>
+<pre class="mermaid" dir="ltr">graph LR
+A[Enable in&lt;br&gt;account settings] --&gt; B[Set a pay per &lt;br/&gt;crawl price ]
+B --&gt; C[Select crawlers&lt;br&gt;to charge]
+C --&gt; D[Monitor&lt;br&gt;activity]:::highlight
+D --&gt; E[Manage&lt;br&gt;payouts]
+classDef highlight fill:#F6821F,color:white
+
+click A "/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/enable-in-account-settings/"
+click B "/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/set-a-pay-per-crawl-price/"
+click C "/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/select-crawlers-to-charge/"
+click E "/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/manage-payouts/"
+</pre>
+<p>After configuring pay per crawl, monitor crawler activity to understand how AI crawlers interact with your content, and track your earnings.</p>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="view-crawler-activity">View crawler activity</h2><a class="anchor-link" href="#view-crawler-activity"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+
+<ol role="list" class="sl-steps">
+<li>
+<p>Go to <strong>AI Crawl Control</strong>.</p>
+<a class="sl-link-button not-content primary astro-vz7jyyru astro-xwgiixxa" href="https://dash.cloudflare.com/?to=/:account/:zone/ai" target="_blank">  Go to <strong class="astro-vz7jyyru">AI Crawl Control</strong>  </a>  
+</li>
+<li>
+<p>Go to the <strong>Metrics</strong> tab to view detailed analytics.</p>
+</li>
+</ol>
+<p>The metrics help you understand:</p>
+<ul>
+<li>Which crawlers are accessing your content</li>
+<li>How often they are being charged</li>
+<li>Request patterns and trends</li>
+<li>Robots.txt violations</li>
+</ul>
+<p>For detailed information about available metrics, refer to <a href="/web/20251012003701/https://developers.cloudflare.com/ai-crawl-control/features/analyze-ai-traffic/#view-ai-crawl-control-metrics">View AI Crawl Control metrics</a>.</p>
+<aside aria-label="Balance visibility" class="starlight-aside starlight-aside--note"><p class="starlight-aside__title" aria-hidden="true">Balance visibility</p><div class="starlight-aside__content"><p>Your accrued earnings balance is not currently visible in the dashboard. You can request balance updates from your Cloudflare team.</p></div></aside>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="additional-considerations">Additional considerations</h2><a class="anchor-link" href="#additional-considerations"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<div tabindex="-1" class="heading-wrapper level-h3"><h3 id="robotstxt-management">Robots.txt management</h3><a class="anchor-link" href="#robotstxt-management"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>Consider updating your <code dir="auto">robots.txt</code> file to clearly indicate which pages should remain off-limits, even if AI crawlers are willing to pay for access.</p>
+<div tabindex="-1" class="heading-wrapper level-h3"><h3 id="ongoing-optimization">Ongoing optimization</h3><a class="anchor-link" href="#ongoing-optimization"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>Do the following to ensure you are using pay per crawl most effectively:</p>
+<ul>
+<li>Review crawler activity regularly to identify patterns</li>
+<li>Adjust pricing based on demand and content value</li>
+<li>Modify crawler actions (charge, allow, block) as needed</li>
+<li>Monitor for any unusual or unwanted crawler behavior</li>
+</ul>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="additional-resources">Additional resources</h2><a class="anchor-link" href="#additional-resources"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<ul>
+<li><a href="/web/20251012003701/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/faq">Pay Per Crawl FAQs</a></li>
+<li><a href="/web/20251012003701/https://developers.cloudflare.com/ai-crawl-control/features/analyze-ai-traffic/">Analyze AI traffic</a></li>
+</ul>
+</article>

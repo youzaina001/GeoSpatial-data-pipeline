@@ -846,12 +846,12 @@ def test_strong_inside_link_span_or_summary_outside_prose_block_is_not_prose() -
         '<main><strong><span class="sl-markdown-content">Headline</span></strong></main>'
     ) == ["headline"]
 
-    # All 8 bundled HTML fixtures still extract 299 sentences across the 8 files.
+    # All 30 bundled HTML fixtures still extract 922 sentences across the 30 files.
     repo_root = Path(__file__).resolve().parents[1]
     fixture_files = sorted((repo_root / "fixtures").glob("*/*/*.html"))
-    assert len(fixture_files) == 8
+    assert len(fixture_files) == 30
     total_sentences = sum(
         len(extract_sentences(path.read_text(encoding="utf-8"))) for path in fixture_files
     )
-    assert total_sentences == 299
+    assert total_sentences == 922
 
