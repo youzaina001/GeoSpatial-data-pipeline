@@ -2,9 +2,10 @@
 """Verify malformed entries, the archive URL allowlist, and extraction from verified bytes (ADR 0019).
 
 Also pin the bundled Cloudflare sample against drift: every manifest entry must hash to
-its fixture file, no fixture may be an orphan or one-sided pair (ADR 0016), and no
-fixture may carry an absolute Wayback replay URL, a script, a Wayback replay toolbar
-marker, or an iframe. Relative replay link targets stay legitimate fixture content."""
+its fixture file, no file in the fixture window directories may be an orphan, pairs
+must be two-sided (ADR 0016), and no fixture may carry an absolute Wayback replay URL,
+a script, a Wayback replay toolbar marker, or an iframe. Relative replay link targets
+stay legitimate fixture content."""
 
 from __future__ import annotations
 
@@ -162,7 +163,8 @@ def test_every_cloudflare_manifest_file_exists_and_hashes() -> None:
     on_disk = {
         f"{window.name}/{path.name}"
         for window in (_CLOUDFLARE_SAMPLE / "earlier", _CLOUDFLARE_SAMPLE / "later")
-        for path in sorted(window.glob("*.html"))
+        for path in sorted(window.iterdir())
+        if path.is_file()
     }
     assert listed == on_disk, f"fixture files and manifest entries drift: {on_disk ^ listed}"
 
