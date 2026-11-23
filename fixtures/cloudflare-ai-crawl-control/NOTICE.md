@@ -5,7 +5,7 @@ The HTML fixtures in this directory (the 13 `.html` files under `earlier/` and t
 - **Authors**: Cloudflare, Inc. and Cloudflare Documentation contributors
 - **Source**: [Cloudflare Documentation (`cloudflare/cloudflare-docs`)](https://github.com/cloudflare/cloudflare-docs#license-and-legal-notices)
 - **License**: [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)
-- **Modifications**: Extracted the main article HTML (`<h1 id="_top">` and `sl-markdown-content`) from each exact Wayback Machine replay URL listed in `manifest.json`, preserving headings, paragraphs, lists, links, inline `<code>`, and `<pre>` code blocks while removing site navigation, footers, Wayback replay toolbars, scripts, buttons, and SVGs. Embedded video players and their iframes are removed, and absolute Wayback replay prefixes in link targets are restored to the original captured site URLs.
+- **Modifications**: Extracted the main article HTML (`<h1 id="_top">` and `sl-markdown-content`) from each exact Wayback Machine replay URL listed in `manifest.json`, preserving headings, paragraphs, lists, links, tables, `<aside>` callouts, `<starlight-tabs>` tab widgets, zoomable `<img>` images, inline `<code>`, and `<pre>` code blocks while removing site navigation, footers, Wayback replay toolbars, scripts, buttons, and SVGs. The embedded video iframe is removed, and absolute Wayback replay prefixes in link targets are restored to the original captured site URLs.
 
 ## Skipped pages
 

@@ -8,7 +8,7 @@
     "license_url": "https://creativecommons.org/licenses/by/4.0/",
     "authors": "Cloudflare, Inc. and Cloudflare Documentation contributors",
     "source_url": "https://github.com/cloudflare/cloudflare-docs#license-and-legal-notices",
-    "modifications": "Extracted main article HTML (<h1 id='_top'> and sl-markdown-content) from Wayback Machine captures and removed navigation, footers, replay toolbars, scripts, and SVGs. Embedded video embeds and iframes are removed, and absolute Wayback replay prefixes are restored to the original link targets."
+    "modifications": "Extracted main article HTML (<h1 id='_top'> and sl-markdown-content) from Wayback Machine captures and removed navigation, footers, replay toolbars, scripts, and SVGs. The embedded video iframe is removed, and absolute Wayback replay prefixes are restored to the original link targets."
   },
   "earlier": [
     {

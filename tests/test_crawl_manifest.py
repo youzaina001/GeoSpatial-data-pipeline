@@ -3,7 +3,8 @@
 
 Also pin the bundled Cloudflare sample against drift: every manifest entry must hash to
 its fixture file, no fixture may be an orphan or one-sided pair (ADR 0016), and no
-fixture may carry Wayback replay chrome."""
+fixture may carry an absolute Wayback replay URL, a script, a Wayback replay toolbar
+marker, or an iframe. Relative replay link targets stay legitimate fixture content."""
 
 from __future__ import annotations
 
@@ -177,6 +178,11 @@ def test_cloudflare_sample_pairs_are_two_sided() -> None:
 
 
 def test_cloudflare_fixtures_carry_no_wayback_chrome() -> None:
+    """Reject absolute Wayback replay URLs, scripts, toolbar markers, and iframes.
+
+    Relative "/web/<timestamp>/" link targets are part of the captured bytes the
+    fixtures legitimately keep; the prose extractor ignores href and src values.
+    """
     forbidden = ("web.archive.org/web/20", "<script", 'id="wm-', "<iframe")
     for window in ("earlier", "later"):
         for path in sorted((_CLOUDFLARE_SAMPLE / window).glob("*.html")):
