@@ -1,0 +1,25 @@
+<article>
+<h1 id="_top" class="astro-j6tvhyss">What is Pay Per Crawl?</h1>
+<aside aria-label="Pay per crawl closed beta" class="starlight-aside starlight-aside--note"><p class="starlight-aside__title" aria-hidden="true">Pay per crawl closed beta</p><div class="starlight-aside__content"><p>Pay per crawl is currently in closed beta.</p><p>To find out how to join the beta program, reach out to us at <a href="http://www.cloudflare.com/paypercrawl-signup/" target="_blank" rel="noopener">Pay per crawl signup<span class="external-link"> ↗</span></a>, or contact your account executive if you are an existing Enterprise customer.</p><p>To learn more about pay per crawl, refer to Cloudflare blog: <a href="https://blog.cloudflare.com/introducing-pay-per-crawl/" target="_blank" rel="noopener">Introducing pay per crawl: enabling content owners to charge AI crawlers for access<span class="external-link"> ↗</span></a>.</p></div></aside>
+<p>AI crawlers often consume vast amounts of web content. Some provide mutual benefit to content owners by indexing content for search engines, but others engage in activities such as content scraping without permission.</p>
+<p>The resulting landscape leaves content owners with limited options for managing AI crawlers or receiving compensation for automated access to their intellectual property.</p>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="what-is-pay-per-crawl">What is Pay Per Crawl?</h2><a class="anchor-link" href="#what-is-pay-per-crawl"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>Pay per crawl is a feature of AI Crawl Control that enables site owners to control and monetize AI crawler access to content by setting a price per zone.</p>
+<p>Each time an AI crawler requests content, they either present payment intent via request headers for successful <code dir="auto">HTTP 200</code> access, or receive an <code dir="auto">HTTP 402 Payment Required</code> response with pricing. Cloudflare acts as the <!-- prettier-ignore --><span id="Merchant of Record" data-tooltip="" data-content="&lt;p&gt;The entity who facilitates &amp;quot;buying and selling&amp;quot;. For pay per crawl, Cloudflare is the merchant of record.&lt;/p&gt;
+" class="border-b-2 border-dashed border-accent" tabindex="0">Merchant of Record</span> for pay per crawl and also provides the underlying technical infrastructure.</p>
+<aside aria-label="Note" class="starlight-aside starlight-aside--note"><p class="starlight-aside__title" aria-hidden="true">Note</p><div class="starlight-aside__content"><p>If you block an AI crawler from a zone via either of Cloudflare's <a href="/web/20251012003735/https://developers.cloudflare.com/waf/">WAF</a> or <a href="/web/20251012003735/https://developers.cloudflare.com/bots/get-started/bot-management/">Bot Management</a> products, those products' rulesets will override pay per crawl's "charge" feature, and the blocked crawler will not have access to the zone.</p></div></aside>
+<p>Ultimately, pay per crawl enables:</p>
+<ul>
+<li>Site owners to take control of their content, and charge a fee every time an AI crawler accesses a page in their <a href="/web/20251012003735/https://developers.cloudflare.com/fundamentals/concepts/accounts-and-zones/#zones">Cloudflare zone</a>. For more details, refer to <a href="/web/20251012003735/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/">use pay per crawl as a site owner</a>.</li>
+<li>AI crawler owners to pay to access content on sites protected by pay per crawl. For more details, refer to <a href="/web/20251012003735/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/">use pay per crawl as an AI owner</a>.</li>
+</ul>
+<starlight-image-zoom-zoomable><img src="/web/20251012003735im_/https://developers.cloudflare.com/_astro/ai-crawl-control-pay-per-crawl-diagram.51Dvd0Od_1abKR5.webp" alt="Pay per crawl components" loading="lazy" decoding="async" fetchpriority="auto" width="2400" height="1122"></starlight-image-zoom-zoomable>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="additional-resources">Additional resources</h2><a class="anchor-link" href="#additional-resources"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>Refer to the following resources.</p>
+<ul>
+<li><a href="/web/20251012003735/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/enable-in-account-settings/">Use pay per crawl as a site owner</a>.</li>
+<li><a href="/web/20251012003735/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/set-up-cloudflare-account/">Use pay per crawl as an AI owner</a>.</li>
+<li><a href="/web/20251012003735/https://developers.cloudflare.com/ai-crawl-control/configuration/ai-crawl-control-with-waf/">AI Crawl Control with Cloudflare WAF</a>.</li>
+<li><a href="/web/20251012003735/https://developers.cloudflare.com/ai-crawl-control/configuration/ai-crawl-control-with-bots/">AI Crawl Control with Cloudflare Bots</a>.</li>
+</ul>
+</article>

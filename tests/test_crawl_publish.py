@@ -408,7 +408,7 @@ def test_cli_crawl_demo_builds_candidates_for_both_samples(tmp_path: Path) -> No
 
     cf = _json(_only_run(tmp_path / "cloudflare-ai-crawl-control" / "runs") / "comparison.json")
     assert cf["archive_host"] == "web.archive.org"
-    assert cf["summary"] == {"compared_pages": 2, "excluded_pages": 0, "distinct_new_words": 1358}
+    assert cf["summary"] == {"compared_pages": 13, "excluded_pages": 0, "distinct_new_words": 1694}
     assert _as_dict(cf["attribution"])["license"] == "CC BY 4.0"
     assert not (tmp_path / "handwritten" / "comparison.json").exists()
 

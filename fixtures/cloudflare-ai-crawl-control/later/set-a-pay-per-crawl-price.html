@@ -1,0 +1,41 @@
+<article>
+<h1 id="_top" class="astro-j6tvhyss">Set a pay per crawl price</h1>
+<pre class="mermaid" dir="ltr">graph LR
+A[Enable in&lt;br&gt;account settings] --&gt; B[Set a pay per &lt;br/&gt;crawl price ]:::highlight
+B --&gt; C[Select crawlers&lt;br&gt;to charge]
+C --&gt; D[Monitor&lt;br&gt;activity]
+D --&gt; E[Manage&lt;br&gt;payouts]
+classDef highlight fill:#F6821F,color:white
+
+click A "/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/enable-in-account-settings/"
+click C "/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/select-crawlers-to-charge/"
+click D "/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/monitor-activity/"
+click E "/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/manage-payouts/"
+</pre>
+<p>Once your domain's visibility is set to <strong>Visible</strong> in Account Settings, you can set a pay per crawl price and enable pay per crawl for that domain.</p>
+
+<ol role="list" class="sl-steps">
+<li>
+<p>Go to <strong>AI Crawl Control</strong>.</p>
+<a class="sl-link-button not-content primary astro-vz7jyyru astro-xwgiixxa" href="https://dash.cloudflare.com/?to=/:account/:zone/ai" target="_blank">  Go to <strong class="astro-vz7jyyru">AI Crawl Control</strong>  </a>
+</li>
+<li>
+<p>Go to the <strong>Settings</strong> tab.</p>
+</li>
+<li>
+<p>In the <strong>Pay Per Crawl</strong> card, select <strong>Enable</strong>.</p>
+</li>
+<li>
+<p>Set your default per crawl price. This is the amount charged for each successful content retrieval (HTTP 200 response) by an AI crawler.</p>
+<ul>
+<li>(Optional) To set different prices for different content, select <strong>Enable custom pricing</strong>. Refer to <a href="/web/20260405004024/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-site-owner/advanced-configuration/">Advanced configuration</a> for details.</li>
+</ul>
+</li>
+<li>
+<p>Select <strong>Save</strong>.</p>
+</li>
+</ol>
+
+<p>After enabling and setting a price, the domain's status in Account Settings will change to <strong>Enabled</strong>.</p>
+<aside aria-label="Pricing considerations" class="starlight-aside starlight-aside--note"><p class="starlight-aside__title" aria-hidden="true">Pricing considerations</p><div class="starlight-aside__content"><p>The minimum price is $0.01 USD per crawl. Consider your content value and expected crawler volume when setting your price.</p></div></aside>
+</article>

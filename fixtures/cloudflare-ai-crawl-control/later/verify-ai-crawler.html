@@ -1,0 +1,45 @@
+<article>
+<h1 id="_top" class="astro-j6tvhyss">Verify your AI crawler</h1>
+<pre class="mermaid" dir="ltr">graph LR
+A[Set up your&lt;br&gt;Cloudflare Account] --&gt; B[Verify your&lt;br&gt;AI crawler]:::highlight
+B --&gt; C[Discover&lt;br&gt;payable content]
+C --&gt; D[Connect to&lt;br&gt;Stripe]
+D --&gt; E[Crawl pages]
+classDef highlight fill:#F6821F,color:white
+</pre>
+<p>Once you have connected your Stripe account, set up your AI crawler as a <a href="/web/20260415215445/https://developers.cloudflare.com/bots/concepts/bot/verified-bots/">verified bot</a>.</p>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="content-access-restriction">Content access restriction</h2><a class="anchor-link" href="#content-access-restriction"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>When an AI crawler tries to access content protected by pay per crawl, it receives a HTTP status code 402. This indicates payment is required. The HTTP header of the response includes the cost of the content.</p>
+<p>For example, the response header may look like below:</p>
+<div class="expressive-code"><link rel="stylesheet" href="/web/20260415215445cs_/https://developers.cloudflare.com/_astro/ec.u0xaj.css"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#eeffff;--1:#62676a">HTTP/2 402</span></div></div><div class="ec-line"><div class="code"><span style="--0:#eeffff;--1:#62676a">date: Fri, 06 Jun 2025 08:42:38 GMT</span></div></div><div class="ec-line"><div class="code"><span style="--0:#eeffff;--1:#62676a">content-type: text/plain; charset=utf-8</span></div></div><div class="ec-line"><div class="code"><span style="--0:#eeffff;--1:#62676a">crawler-price: USD 0.01</span></div></div><div class="ec-line"><div class="code"><span style="--0:#eeffff;--1:#62676a">server: cloudflare</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div></div></figure></div>
+<p>To access this content, you must verify your AI crawler.</p>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="1-follow-web-bot-auth-protocol">1. Follow Web Bot Auth protocol</h2><a class="anchor-link" href="#1-follow-web-bot-auth-protocol"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>Ensure your AI crawler identifies itself with the required headers for Web Bot Auth.</p>
+<p>Follow the steps found in <a href="/web/20260415215445/https://developers.cloudflare.com/bots/reference/bot-verification/web-bot-auth/">Web Both Auth</a>.</p>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="2-follow-verified-bot-policy">2. Follow verified bot policy</h2><a class="anchor-link" href="#2-follow-verified-bot-policy"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>Ensure your AI crawler follows Cloudflare's <a href="/web/20260415215445/https://developers.cloudflare.com/bots/concepts/bot/verified-bots/policy/">verified bots policy</a>.</p>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="3-submit-verification-request">3. Submit verification request</h2><a class="anchor-link" href="#3-submit-verification-request"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>Submit a form to add your AI crawler to Cloudflare's list of verified bots.</p>
+
+<ol role="list" class="sl-steps">
+<li>
+<p>In the Cloudflare dashboard, go to <strong>Manage Account</strong> &gt; <strong>Settings</strong>.</p>
+<a class="sl-link-button not-content primary astro-vz7jyyru astro-xwgiixxa" href="https://dash.cloudflare.com/?to=/:account/configurations" target="_blank">  Go to <strong class="astro-vz7jyyru">Configurations</strong>  </a>
+</li>
+<li>
+<p>Go to the <strong>Bot Submission Form</strong> tab.</p>
+</li>
+<li>
+<p>Fill out the form with the following required information:</p>
+<ul>
+<li><strong>Select bot type</strong>: Choose either <strong>Verified Bot</strong> or <strong>Signed Agent</strong>.</li>
+<li><strong>Verification Method</strong>: Select <strong>Request Signature</strong>.</li>
+<li><strong>User-Agents header values</strong>: Provide the User-Agent string(s) your bot uses.</li>
+<li><strong>User-Agents Match Pattern</strong>: Provide substring patterns that match your User-Agent (for example, <code dir="auto">GoogleBot | GoogleScraper</code>).</li>
+</ul>
+</li>
+<li>
+<p>Select <strong>Submit</strong>.</p>
+</li>
+</ol>
+</article>

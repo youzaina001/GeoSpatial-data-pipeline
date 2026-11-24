@@ -1,5 +1,11 @@
 # Crawl manifest contract tests
-"""Verify malformed entries, the archive URL allowlist, and extraction from verified bytes (ADR 0019)."""
+"""Verify malformed entries, the archive URL allowlist, and extraction from verified bytes (ADR 0019).
+
+Also pin the bundled Cloudflare sample against drift: every manifest entry must hash to
+its fixture file, no file in the fixture window directories may be an orphan, pairs
+must be two-sided (ADR 0016), and no fixture may carry an absolute Wayback replay URL,
+a script, a Wayback replay toolbar marker, or an iframe. Relative replay link targets
+stay legitimate fixture content."""
 
 from __future__ import annotations
 
@@ -133,3 +139,55 @@ def test_capture_entry_without_file_or_load_error_is_a_value_error() -> None:
     )
     with pytest.raises(ValueError, match="neither"):
         match_crawl(manifest)
+
+
+# Bundled Cloudflare sample drift (ADR 0016, NOTICE.md).
+
+
+_CLOUDFLARE_SAMPLE = Path(__file__).resolve().parents[1] / "fixtures" / "cloudflare-ai-crawl-control"
+
+
+def test_every_cloudflare_manifest_file_exists_and_hashes() -> None:
+    manifest_path = _CLOUDFLARE_SAMPLE / "manifest.json"
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    listed: set[str] = set()
+    for window in ("earlier", "later"):
+        for entry in data[window]:
+            rel = entry["file"]
+            path = _CLOUDFLARE_SAMPLE / rel
+            assert path.is_file(), f"manifest file is missing on disk: {rel}"
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            assert digest == entry["sha256"].lower(), f"sha256 mismatch for {rel}: expected {entry['sha256']}, got {digest}"
+            assert rel not in listed, f"manifest lists the same file in both windows: {rel}"
+            listed.add(rel)
+    on_disk = {
+        f"{window.name}/{path.name}"
+        for window in (_CLOUDFLARE_SAMPLE / "earlier", _CLOUDFLARE_SAMPLE / "later")
+        for path in sorted(window.iterdir())
+        if path.is_file()
+    }
+    assert listed == on_disk, f"fixture files and manifest entries drift: {on_disk ^ listed}"
+
+
+def test_cloudflare_sample_pairs_are_two_sided() -> None:
+    data = json.loads((_CLOUDFLARE_SAMPLE / "manifest.json").read_text(encoding="utf-8"))
+    earlier_urls = {entry["page_url"] for entry in data["earlier"]}
+    later_urls = {entry["page_url"] for entry in data["later"]}
+    assert earlier_urls == later_urls, (
+        "every Cloudflare sample page must have a capture in both windows: "
+        f"earlier only: {sorted(earlier_urls - later_urls)}, later only: {sorted(later_urls - earlier_urls)}"
+    )
+
+
+def test_cloudflare_fixtures_carry_no_wayback_chrome() -> None:
+    """Reject absolute Wayback replay URLs, scripts, toolbar markers, and iframes.
+
+    Relative "/web/<timestamp>/" link targets are part of the captured bytes the
+    fixtures legitimately keep; the prose extractor ignores href and src values.
+    """
+    forbidden = ("web.archive.org/web/20", "<script", 'id="wm-', "<iframe")
+    for window in ("earlier", "later"):
+        for path in sorted((_CLOUDFLARE_SAMPLE / window).glob("*.html")):
+            text = path.read_text(encoding="utf-8")
+            for marker in forbidden:
+                assert marker not in text, f"{window}/{path.name} contains Wayback chrome: {marker}"

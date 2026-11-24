@@ -9,8 +9,9 @@ archived samples of one documentation site and counts the
 on no page of the earlier crawl, even when a page moved to a new URL.
 
 The first comparison uses October 2025 and April 2026 archive captures of
-Cloudflare's AI Crawl Control documentation. Everything runs offline from
-bundled fixtures, with no cloud account or credentials.
+Cloudflare's AI Crawl Control documentation, covering the 13 documented pages
+archived in both windows. Everything runs offline from bundled fixtures, with
+no cloud account or credentials.
 
 ## Try it
 
@@ -27,8 +28,8 @@ make check     # pytest, Ruff, mypy and explorer JS unit tests
 
 `make demo` writes one run per sample under `data/demo/<sample>/runs/`. Each
 run has a public `comparison.json` and a maintainer `run-summary.json`. The
-headline figure is `summary.distinct_new_words` in `comparison.json`: 1358
-for the Cloudflare sample. A small handwritten sample must report exactly one,
+headline figure is `summary.distinct_new_words` in `comparison.json`: 1694 for
+the Cloudflare sample. A small handwritten sample must report exactly one,
 or the demo stops before writing. Run `make test-browser` where Node >= 22 and
 Google Chrome are installed to verify the explorer end-to-end.
 
@@ -54,9 +55,9 @@ Google Chrome are installed to verify the explorer end-to-end.
 ## What's next
 
 The static explorer is live under `explorer/` (`make preview` serves it locally).
-Next is adding the remaining 11 archived page pairs for Cloudflare AI Crawl
-Control. Open work is tracked in
-[GitHub Issues](https://github.com/youzaina001/geocrawl/issues).
+The Cloudflare AI Crawl Control sample now bundles all 13 archived page pairs,
+so the first comparison released with the explorer is complete. Open work is
+tracked in [GitHub Issues](https://github.com/youzaina001/geocrawl/issues).
 
 ## Repository map
 

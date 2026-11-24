@@ -1,0 +1,126 @@
+<article>
+<h1 id="_top" class="astro-j6tvhyss">Manage AI crawlers</h1>
+<p>AI Crawl Control enables you to take specific action for each AI crawler.</p>
+<p>To manage AI crawlers:</p>
+<ol>
+<li>
+<p>Log in to the <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare dashboard<span class="external-link"> ↗</span></a>, and select your account and domain.</p>
+</li>
+<li>
+<p>Go to <strong>AI Crawl Control</strong>.</p>
+<a class="sl-link-button not-content primary astro-vz7jyyru astro-xwgiixxa" href="https://dash.cloudflare.com/?to=/:account/:zone/ai" target="_blank">  Go to <strong class="astro-vz7jyyru">AI Crawl Control</strong>  </a>  
+</li>
+<li>
+<p>Go to the <strong>Crawlers</strong> tab.</p>
+</li>
+</ol>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="review-ai-crawler-activity">Review AI crawler activity</h2><a class="anchor-link" href="#review-ai-crawler-activity"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>The <strong>Crawlers</strong> tab displays a table of AI crawlers that are requesting access to your content, and how they interact with your pages. The table provides the following information.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Column</th><th>Details</th></tr></thead><tbody><tr><td>Crawler</td><td>The name of the AI crawler and the operator that owns it.</td></tr><tr><td>Category</td><td>The category of the AI crawler. Refer to <a href="/web/20251005132617/https://developers.cloudflare.com/bots/concepts/bot/verified-bots/#categories">Verified bot categories</a>.</td></tr><tr><td>Requests</td><td>The total number of allowed and unsuccessful requests, with trend chart. Unsuccessful requests may come from any rule or response error, not just the block action in AI Crawl Control.</td></tr><tr><td>Robots.txt violations</td><td>The number of times the AI crawler has violated your <!-- prettier-ignore --><span id="robots.txt" data-tooltip="" data-content="&lt;p&gt;A text file which lists pages in your website that are off-limits for bots. Well-behaved bots respect this file, but some bots may violate it. You can enforce &lt;code&gt;robots.txt&lt;/code&gt; with Cloudflare WAF custom rules.&lt;/p&gt;
+" class="border-b-2 border-dashed border-accent" tabindex="0"><code dir="auto">robots.txt</code></span> file.</td></tr><tr><td>Action</td><td>The action you wish to take for the AI crawler. Refer to <a href="/web/20251005132617/https://developers.cloudflare.com/ai-crawl-control/features/manage-ai-crawlers/#take-action-for-each-ai-crawler">Take action for each AI crawler</a>.</td></tr></tbody></table>
+<aside aria-label="Quality of AI crawler detection" class="starlight-aside starlight-aside--note"><p class="starlight-aside__title" aria-hidden="true">Quality of AI crawler detection</p><div class="starlight-aside__content"><p>On the free plan, AI Crawl Control identifies AI crawlers based on their <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/User-Agent" target="_blank" rel="noopener">user agent strings<span class="external-link"> ↗</span></a>. This enables AI Crawl Control to detect well-known, self-identifying AI crawlers.</p><p>Upgrade your plan to enable a more thorough detection using Cloudflare's <a href="/web/20251005132617/https://developers.cloudflare.com/bots/reference/bot-management-variables/#ruleset-engine-fields">Bot Management detection ID</a> field.</p></div></aside>
+<div tabindex="-1" class="heading-wrapper level-h3"><h3 id="filter-ai-crawler-data">Filter AI crawler data</h3><a class="anchor-link" href="#filter-ai-crawler-data"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>You can use filters to narrow the scope of your result:</p>
+<ul>
+<li><strong>Name:</strong> Search the name of the AI crawler.</li>
+<li><strong>Operator:</strong> Filter by the AI crawler operator.</li>
+<li><strong>Category:</strong> Filter by the category of the AI crawler (for example, AI crawler, AI assistant, or archiver).</li>
+</ul>
+<p>The values of the table will update according to your filter.</p>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="take-action-for-each-ai-crawler">Take action for each AI crawler</h2><a class="anchor-link" href="#take-action-for-each-ai-crawler"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<starlight-tabs class="astro-esqgolmp"> <div class="tablist-wrapper not-content astro-esqgolmp"> <ul role="tablist" class="astro-esqgolmp"> <li role="presentation" class="tab astro-esqgolmp"> <a role="tab" href="#tab-panel-927" id="tab-927" aria-selected="true" tabindex="0" class="astro-esqgolmp">  Without pay per crawl </a> </li><li role="presentation" class="tab astro-esqgolmp"> <a role="tab" href="#tab-panel-928" id="tab-928" aria-selected="false" tabindex="-1" class="astro-esqgolmp">  With pay per crawl </a> </li> </ul> </div> <div id="tab-panel-927" aria-labelledby="tab-927" role="tabpanel"> <p>For each AI crawler, you can choose to allow or block access.</p><article class="card sl-flex astro-v5tidmuc"> <p class="title sl-flex astro-v5tidmuc">  <span class="astro-v5tidmuc">Allow access</span> </p> <div class="body astro-v5tidmuc"> <ul>
+<li><strong>Summary:</strong> You can allow an AI crawler to scrape your content.</li>
+<li><strong>When to use:</strong> Allow AI crawlers that offer services which provide value through citations, referrals, or existing agreements.</li>
+<li><strong>Implementation:</strong> From the <strong>Actions</strong> column, select <strong>Allow</strong>.</li>
+</ul><p>Note that you can still choose to <a href="/web/20251005132617/https://developers.cloudflare.com/ai-crawl-control/features/manage-ai-crawlers/#take-action-for-each-ai-crawler">Enforce <code dir="auto">robots.txt</code></a>.</p> </div> </article>  <article class="card sl-flex astro-v5tidmuc"> <p class="title sl-flex astro-v5tidmuc">  <span class="astro-v5tidmuc">Block access</span> </p> <div class="body astro-v5tidmuc"> <ul>
+<li><strong>Summary:</strong> You can block an AI crawler to completely stop the AI crawler from scraping your webpage.</li>
+<li><strong>When to use:</strong> Block AI crawlers when their behavior do not align with your content strategy, or violate your policies.</li>
+<li><strong>Implementation:</strong> From the <strong>Actions</strong> column, select <strong>Block</strong>.</li>
+</ul><p>Note that you can configure the response that gets returned when blocking an AI crawler. Refer to <a href="/web/20251005132617/https://developers.cloudflare.com/ai-crawl-control/features/manage-ai-crawlers/#configure-block-response">Configure block response</a>.</p> </div> </article>   </div><div id="tab-panel-928" aria-labelledby="tab-928" role="tabpanel" hidden=""> <aside aria-label="Pay per crawl closed beta" class="starlight-aside starlight-aside--note"><p class="starlight-aside__title" aria-hidden="true">Pay per crawl closed beta</p><div class="starlight-aside__content"><p>Pay per crawl is currently in closed beta.</p><p>To find out how to join the beta program, reach out to us at <a href="http://www.cloudflare.com/paypercrawl-signup/" target="_blank" rel="noopener">Pay per crawl signup<span class="external-link"> ↗</span></a>, or contact your account executive if you are an existing Enterprise customer.</p><p>To learn more about pay per crawl, refer to Cloudflare blog: <a href="https://blog.cloudflare.com/introducing-pay-per-crawl/" target="_blank" rel="noopener">Introducing pay per crawl: enabling content owners to charge AI crawlers for access<span class="external-link"> ↗</span></a>.</p></div></aside><p>For each AI crawler, you can take one of three actions: allow, charge, or block.</p><article class="card sl-flex astro-v5tidmuc"> <p class="title sl-flex astro-v5tidmuc">  <span class="astro-v5tidmuc">Allow access</span> </p> <div class="body astro-v5tidmuc"> <ul>
+<li><strong>Summary:</strong> You can allow an AI crawler to scrape your content.</li>
+<li><strong>When to use:</strong> Allow AI crawlers that offer services which provide value through citations, referrals, or existing agreements.</li>
+<li><strong>Implementation:</strong> From the <strong>Actions</strong> column, select <strong>Allow</strong>.
+Note that you can still choose to <a href="/web/20251005132617/https://developers.cloudflare.com/ai-crawl-control/features/manage-ai-crawlers/#take-action-for-each-ai-crawler">Enforce <code dir="auto">robots.txt</code></a>.</li>
+</ul><p>For more details on how this rule interacts with other Cloudflare settings, refer to <a href="/web/20251005132617/https://developers.cloudflare.com/bots/concepts/bot/#how-it-works">How it works</a>.</p> </div> </article>  <article class="card sl-flex astro-v5tidmuc"> <p class="title sl-flex astro-v5tidmuc">  <span class="astro-v5tidmuc">Block access</span> </p> <div class="body astro-v5tidmuc"> <ul>
+<li><strong>Summary:</strong> You can block an AI crawler to completely stop the AI crawler from scraping your webpage.</li>
+<li><strong>When to use:</strong> Block AI crawlers when their behavior do not align with your content strategy, or violate your policies.</li>
+<li><strong>Implementation:</strong> From the <strong>Actions</strong> column, select <strong>Block</strong>.</li>
+</ul><p>Note that you can configure the response that gets returned when blocking an AI crawler. Refer to <a href="/web/20251005132617/https://developers.cloudflare.com/ai-crawl-control/features/manage-ai-crawlers/#configure-block-response">Configure block response</a>.</p> </div> </article>  <article class="card sl-flex astro-v5tidmuc"> <p class="title sl-flex astro-v5tidmuc">  <span class="astro-v5tidmuc">Charge for crawl (private beta)</span> </p> <div class="body astro-v5tidmuc"> <ul>
+<li><strong>Summary:</strong> You can charge the owner of the AI crawler for each successful crawl request.</li>
+<li><strong>When to use:</strong> Charge AI crawlers when your content has training value, and you want to explore monetization options.</li>
+<li><strong>Implementation:</strong> From the <strong>Actions</strong> column, select <strong>Charge</strong>.</li>
+</ul><p>For more information, refer to <a href="/web/20251005132617/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/what-is-pay-per-crawl/">What is Pay Per Crawl?</a>.</p> </div> </article>   </div>  </starlight-tabs>  
+<aside aria-label="Need more advanced control?" class="starlight-aside starlight-aside--tip"><p class="starlight-aside__title" aria-hidden="true">Need more advanced control?</p><div class="starlight-aside__content"><p>You can also create more complex rules when taking action on AI crawlers, using <a href="/web/20251005132617/https://developers.cloudflare.com/waf/">Cloudflare WAF</a>. For more information on creating more specific rules, refer to <a href="/web/20251005132617/https://developers.cloudflare.com/waf/custom-rules/create-dashboard/">Create a custom rule in the dashboard</a>.</p></div></aside>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="configure-block-response">Configure block response</h2><a class="anchor-link" href="#configure-block-response"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<div class="font-semibold text-blue-700 dark:text-indigo-300"> Available on Paid plans </div>
+<p>When blocking an AI crawler, you can configure the details of the response that gets returned to the AI crawler. Specifically, you can configure:</p>
+<ul>
+<li>The response code</li>
+<li>The response body</li>
+</ul>
+<p>This provides you with a channel to open dialogue with the AI crawler owner, and to inform the AI crawler how to properly license their content, thereby creating a direct path from crawling attempt to commercial agreement.</p>
+<p>To edit these values:</p>
+<ol role="list" class="sl-steps">
+<li>
+<p>Log in to the <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare dashboard<span class="external-link"> ↗</span></a>, and select your account and domain.</p>
+</li>
+<li>
+<p>Go to <strong>AI Crawl Control</strong>.</p>
+<a class="sl-link-button not-content primary astro-vz7jyyru astro-xwgiixxa" href="https://dash.cloudflare.com/?to=/:account/:zone/ai" target="_blank">  Go to <strong class="astro-vz7jyyru">AI Crawl Control</strong>  </a>  
+</li>
+<li>
+<p>Go to the <strong>Settings</strong> tab.</p>
+</li>
+<li>
+<p>Under <strong>Block response</strong>, select <strong>Edit</strong>.</p>
+</li>
+<li>
+<p>Once you have edited the values, select <strong>Save</strong>.</p>
+</li>
+</ol>
+<aside aria-label="Note" class="starlight-aside starlight-aside--note"><p class="starlight-aside__title" aria-hidden="true">Note</p><div class="starlight-aside__content"><p>You must have opted to block at least one AI crawler to configure a custom block response.</p></div></aside>
+<div tabindex="-1" class="heading-wrapper level-h3"><h3 id="edit-the-response-code">Edit the response code</h3><a class="anchor-link" href="#edit-the-response-code"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>You can choose which HTTP response code to return when blocking an AI crawler.</p>
+<p>Use the dropdown menu to select the desired response code. You can choose from:</p>
+<ul>
+<li><code dir="auto">403 Forbidden</code>: Use this option if you wish to indicate that you do not want the AI crawler to access your content.</li>
+<li><code dir="auto">402 Payment Required</code>: Use this option if you wish to indicate that the AI crawler must pay to access your content.</li>
+</ul>
+<aside aria-label="Note" class="starlight-aside starlight-aside--note"><p class="starlight-aside__title" aria-hidden="true">Note</p><div class="starlight-aside__content"><p>Behind the scenes, AI Crawl Control uses <a href="/web/20251005132617/https://developers.cloudflare.com/waf/">Cloudflare WAF</a> to return custom block responses.</p><p>If you have manually configured a WAF rule to return a response code other than <code dir="auto">403</code> or <code dir="auto">402</code>, AI Crawl Control will not be able to enforce the response code you have selected, and the dropdown will appear blank. Ensure you have selected either <code dir="auto">403</code> or <code dir="auto">402</code>.</p><p>Refer to <a href="/web/20251005132617/https://developers.cloudflare.com/waf/custom-rules/create-dashboard/#configure-a-custom-response-for-blocked-requests">Configure a custom response for blocked requests</a> for more information.</p></div></aside>
+<div tabindex="-1" class="heading-wrapper level-h3"><h3 id="edit-the-response-body">Edit the response body</h3><a class="anchor-link" href="#edit-the-response-body"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>You can write a custom message (HTTP response body) to return when blocking an AI crawler.</p>
+<p>In the <strong>Response body</strong> text field, enter the response you wish to display for the AI crawler in plain text.</p>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="related-resources">Related resources</h2><a class="anchor-link" href="#related-resources"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<ul>
+<li>Use <a href="/web/20251005132617/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/what-is-pay-per-crawl/">pay per crawl</a> to charge AI crawlers every time they access your content.</li>
+</ul>
+</article>

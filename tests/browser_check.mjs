@@ -486,15 +486,15 @@ async function verifyPromotedSite(cdp, sessionId, baseUrl, comparison, { strictC
 
     if (strictCloudflareDemo) {
       assert.equal(comparison.sample_id, "cloudflare-ai-crawl-control");
-      assert.equal(firstScreen.summaryWords.replace(/,/g, ""), "1358");
+      assert.equal(firstScreen.summaryWords.replace(/,/g, ""), "1694");
       assert.equal(comparison.earlier_window, "2025-10");
       assert.equal(comparison.later_window, "2026-04");
-      assert.equal(firstScreen.comparedCount, "2");
+      assert.equal(firstScreen.comparedCount, "13");
       assert.equal(firstScreen.excludedCount, "0");
       assert.ok(firstScreen.footerText.includes("CC BY 4.0"));
-      assert.equal(firstScreen.rows.length, 2);
+      assert.equal(firstScreen.rows.length, 13);
       assert.ok(firstScreen.rows[0].url.endsWith("/changelog/"));
-      assert.equal(firstScreen.detailWords, "1,342 new words");
+      assert.equal(firstScreen.detailWords, "1,222 new words");
       for (const href of firstScreen.detailLinks) {
         assert.match(href, /^https:\/\/web\.archive\.org\//);
       }

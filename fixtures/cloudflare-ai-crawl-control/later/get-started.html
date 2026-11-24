@@ -1,0 +1,80 @@
+<article>
+<h1 id="_top" class="astro-j6tvhyss">Get started</h1>
+<p>This guide instructs you on how to:</p>
+<ul>
+<li>View AI crawlers that are interacting with pages in your domain (a <a href="/web/20260413111109/https://developers.cloudflare.com/fundamentals/concepts/accounts-and-zones/#zones">Cloudflare zone</a>).</li>
+<li>Use AI Crawl Control to block individual crawlers from accessing your content.</li>
+</ul>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="prerequisites">Prerequisites</h2><a class="anchor-link" href="#prerequisites"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<ol>
+<li>Sign up for a <a href="https://dash.cloudflare.com/sign-up/" target="_blank" rel="noopener">Cloudflare account<span class="external-link"> ↗</span></a>.</li>
+<li><a href="/web/20260413111109/https://developers.cloudflare.com/fundamentals/manage-domains/add-site/">Connect your domain to Cloudflare</a>.</li>
+<li>Make sure your domain is <a href="/web/20260413111109/https://developers.cloudflare.com/fundamentals/concepts/how-cloudflare-works/#cloudflare-as-a-reverse-proxy">proxying traffic through Cloudflare</a>.</li>
+</ol>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="1-monitor-ai-crawler-activity-at-a-glance">1. Monitor AI crawler activity at a glance</h2><a class="anchor-link" href="#1-monitor-ai-crawler-activity-at-a-glance"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+
+<ol role="list" class="sl-steps">
+<li>
+<p>Go to <strong>AI Crawl Control</strong>.</p>
+<a class="sl-link-button not-content primary astro-vz7jyyru astro-xwgiixxa" href="https://dash.cloudflare.com/?to=/:account/:zone/ai" target="_blank">  Go to <strong class="astro-vz7jyyru">AI Crawl Control</strong>  </a>
+</li>
+<li>
+<p>Review the snapshot of your AI crawler activity in the <strong>Overview</strong> tab.</p>
+</li>
+<li>
+<p>Use the filters to view activity by specific date ranges, crawlers, operators, hostnames, or paths.</p>
+</li>
+</ol>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="2-block-specific-ai-crawlers">2. Block specific AI crawlers</h2><a class="anchor-link" href="#2-block-specific-ai-crawlers"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<starlight-tabs data-sync-key="plans" class="astro-esqgolmp"> <div class="tablist-wrapper not-content astro-esqgolmp"> <ul role="tablist" class="astro-esqgolmp"> <li role="presentation" class="tab astro-esqgolmp"> <a role="tab" href="#tab-panel-3097" id="tab-3097" aria-selected="true" tabindex="0" class="astro-esqgolmp">  All plans </a> </li><li role="presentation" class="tab astro-esqgolmp"> <a role="tab" href="#tab-panel-3098" id="tab-3098" aria-selected="false" tabindex="-1" class="astro-esqgolmp">  Paid plans </a> </li> </ul> </div> <div id="tab-panel-3097" aria-labelledby="tab-3097" role="tabpanel"> <p>To block specific AI crawlers:</p><ol role="list" class="sl-steps">
+<li>
+<p>Go to <strong>AI Crawl Control</strong>.</p>
+<a class="sl-link-button not-content primary astro-vz7jyyru astro-xwgiixxa" href="https://dash.cloudflare.com/?to=/:account/:zone/ai" target="_blank">  Go to <strong class="astro-vz7jyyru">AI Crawl Control</strong>  </a>
+</li>
+<li>
+<p>Review which AI crawlers are accessing your domain in the <strong>Crawlers</strong> tab.</p>
+</li>
+<li>
+<p>In the <strong>Action</strong> column, select <strong>Block</strong>.</p>
+</li>
+</ol><aside aria-label="Quality of AI crawler detection" class="starlight-aside starlight-aside--note"><p class="starlight-aside__title" aria-hidden="true">Quality of AI crawler detection</p><div class="starlight-aside__content"><p>On the free plan, AI Crawl Control identifies AI crawlers based on their <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/User-Agent" target="_blank" rel="noopener">user agent strings<span class="external-link"> ↗</span></a>. This enables AI Crawl Control to detect well-known, self-identifying AI crawlers.</p><p>Upgrade your plan to enable a more thorough detection using Cloudflare's <a href="/web/20260413111109/https://developers.cloudflare.com/bots/reference/bot-management-variables/#ruleset-engine-fields">Bot Management detection ID</a> field.</p></div></aside> </div><div id="tab-panel-3098" aria-labelledby="tab-3098" role="tabpanel" hidden=""> <p>To block specific AI crawlers:</p><ol role="list" class="sl-steps">
+<li>
+<p>Go to <strong>AI Crawl Control</strong>.</p>
+<a class="sl-link-button not-content primary astro-vz7jyyru astro-xwgiixxa" href="https://dash.cloudflare.com/?to=/:account/:zone/ai" target="_blank">  Go to <strong class="astro-vz7jyyru">AI Crawl Control</strong>  </a>
+</li>
+<li>
+<p>Review which AI crawlers are accessing your domain in the <strong>Crawlers</strong> tab.</p>
+</li>
+<li>
+<p>In the <strong>Action</strong> column, select <strong>Block</strong>.</p>
+</li>
+</ol> </div> <starlight-tabs-restore class="astro-esqgolmp"></starlight-tabs-restore> </starlight-tabs>  
+<p>For more information, refer to <a href="/web/20260413111109/https://developers.cloudflare.com/ai-crawl-control/features/manage-ai-crawlers/">Manage AI crawlers</a>.</p>
+<p>You can also create more complex rules when taking action on AI crawlers, using <a href="/web/20260413111109/https://developers.cloudflare.com/waf/">Cloudflare WAF</a>. For more information on creating more specific rules, refer to <a href="/web/20260413111109/https://developers.cloudflare.com/waf/custom-rules/create-dashboard/">Create a custom rule in the dashboard</a>.</p>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="3-explore-detailed-metrics">3. Explore detailed metrics</h2><a class="anchor-link" href="#3-explore-detailed-metrics"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<starlight-tabs class="astro-esqgolmp"> <div class="tablist-wrapper not-content astro-esqgolmp"> <ul role="tablist" class="astro-esqgolmp"> <li role="presentation" class="tab astro-esqgolmp"> <a role="tab" href="#tab-panel-3096" id="tab-3096" aria-selected="true" tabindex="0" class="astro-esqgolmp">  All plans </a> </li> </ul> </div> <div id="tab-panel-3096" aria-labelledby="tab-3096" role="tabpanel"> <p>For more detailed analytics, use the <strong>Metrics</strong> tab.</p><ol role="list" class="sl-steps">
+<li>
+<p>Go to <strong>AI Crawl Control</strong>.</p>
+<a class="sl-link-button not-content primary astro-vz7jyyru astro-xwgiixxa" href="https://dash.cloudflare.com/?to=/:account/:zone/ai" target="_blank">  Go to <strong class="astro-vz7jyyru">AI Crawl Control</strong>  </a>
+</li>
+<li>
+<p>Review detailed breakdowns by date range, crawler, operator, status code, hostname, or path in the <strong>Metrics</strong> tab.</p>
+</li>
+</ol> </div>  </starlight-tabs>  
+<p>Note that on free plans, the <strong>Metrics</strong> tab only displays metrics for the past 24 hours.</p>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="plan-comparison">Plan comparison</h2><a class="anchor-link" href="#plan-comparison"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<table><thead><tr><th>All plans</th><th>Enterprise plans with Bot Management</th></tr></thead><tbody><tr><td>AI crawler detection via <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/User-Agent" target="_blank" rel="noopener">user agent strings<span class="external-link"> ↗</span></a></td><td>Advanced AI crawler detection via <a href="/web/20260413111109/https://developers.cloudflare.com/bots/reference/bot-management-variables/#ruleset-engine-fields">Bot Management detection ID</a></td></tr><tr><td>Maximum 24-hour analytics window</td><td>Configurable analytics timeframes</td></tr><tr><td>Allow/block controls</td><td>Allow/block controls, and the ability to charge AI crawlers using <a href="/web/20260413111109/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/what-is-pay-per-crawl/">pay per crawl</a></td></tr></tbody></table>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="next-steps">Next steps</h2><a class="anchor-link" href="#next-steps"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<ul>
+<li><a href="/web/20260413111109/https://developers.cloudflare.com/ai-crawl-control/features/manage-ai-crawlers/">Manage AI crawlers</a> with granular allow/block controls.</li>
+<li><a href="/web/20260413111109/https://developers.cloudflare.com/ai-crawl-control/features/analyze-ai-traffic/">Analyze AI traffic</a> to understand crawler patterns and content popularity.</li>
+<li><a href="/web/20260413111109/https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/what-is-pay-per-crawl/">Explore pay per crawl</a> to test content monetization options (private beta).</li>
+</ul>
+<div tabindex="-1" class="heading-wrapper level-h2"><h2 id="related-resources">Related resources</h2><a class="anchor-link" href="#related-resources"><span aria-hidden="true" class="anchor-icon"></span></a></div>
+<p>Refer to the following related resources:</p>
+<ul>
+<li>Cloudflare blog: <a href="https://blog.cloudflare.com/nl-nl/cloudflare-ai-audit-control-ai-content-crawlers/" target="_blank" rel="noopener">Start auditing and controlling the AI models accessing your content<span class="external-link"> ↗</span></a></li>
+<li>Block AI crawlers that do not adhere to recommended guidelines using <a href="/web/20260413111109/https://developers.cloudflare.com/bots/additional-configurations/ai-labyrinth/">Cloudflare AI Labyrinth</a>.</li>
+<li><a href="/web/20260413111109/https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/">Direct AI crawlers with managed robots.txt</a>.</li>
+</ul>
+</article>
