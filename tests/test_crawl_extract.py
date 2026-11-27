@@ -219,7 +219,7 @@ def test_title_selection_skips_a_heading_inside_navigation() -> None:
 
 
 def test_omitted_end_tags_close_blocks_like_html_does() -> None:
-    # AGY round 3: an unclosed <li> or <p> kept collecting the link that followed the block.
+    # An unclosed <li> or <p> must not keep collecting the link that follows the block.
     items = "<article><ul><li>First item<li>Second item</ul><a href='/rss.xml'>Subscribe</a></article>"
     paras = "<article><p>First para<p>Second para<div><a href='/rss.xml'>Subscribe</a></div></article>"
     rows = "<article><table><tr><td>One<td>Two</table><a href='/rss.xml'>Subscribe</a></article>"
@@ -233,7 +233,7 @@ def _article_texts(html: str) -> list[str]:
 
 
 def test_an_inline_end_tag_never_closes_the_block_inside_it() -> None:
-    # Round 4 reviews: </span> or </a> closed the <p> or <h2> it wrapped and dropped prose.
+    # A stray </span> or </a> must not close the <p> or <h2> it wraps and drop prose.
     assert _article_texts("<span><p>First </span>second.</p>") == ["first second"]
     assert _article_texts("<span><p>First sentence.</span> Second sentence.</p>") == [
         "first sentence",
@@ -271,7 +271,7 @@ def test_a_new_table_section_closes_the_open_header_cell() -> None:
 
 
 def test_many_images_in_one_paragraph_extract_in_linear_time() -> None:
-    # Codex round 4: void elements stayed on the open-element stack, so this was quadratic.
+    # Void elements must not stay on the open-element stack, keeping extraction linear.
     from time import perf_counter
 
     html = "<p>First " + '<img src="x">' * 20000 + "last.</p>"
@@ -281,14 +281,14 @@ def test_many_images_in_one_paragraph_extract_in_linear_time() -> None:
 
 
 def test_a_hidden_line_break_adds_no_space() -> None:
-    # Codex round 5: a hidden <br> bypassed the hidden check and split the word.
+    # A hidden <br> must respect the hidden check and avoid splitting the word.
     assert _article_texts("<p>co<br hidden>operate</p>") == ["cooperate"]
     assert _article_texts('<p>one<br aria-hidden="true"/>two</p>') == ["onetwo"]
 
 
 def test_tags_inside_skipped_controls_never_close_the_visible_block_around_them() -> None:
-    # Round 5 reviews: a block or cell inside <svg>, <select>, <noscript>, <label> or <button>
-    # closed the outer paragraph or cell, leaked the hidden text and dropped the rest.
+    # A block or cell inside <svg>, <select>, <noscript>, <label>, or <button>
+    # must not close the outer paragraph or cell, leak hidden text, or drop the rest.
     assert _article_texts(
         "<p>before <select><option>one</option><hr><option>two</option></select>after.</p>"
     ) == ["before after"]
@@ -305,7 +305,7 @@ def test_tags_inside_skipped_controls_never_close_the_visible_block_around_them(
 
 
 def test_markup_a_browser_moves_out_of_a_control_counts_where_the_browser_puts_it() -> None:
-    # Round 7: a <p> inside <label> closes the paragraph and the label, and a <td> inside a
+    # A <p> inside <label> closes the paragraph and the label, and a <td> inside a
     # <button> starts a new cell, so a browser shows that text as page prose. The " end"
     # after the stray </button> is moved before the table, outside any prose block.
     assert _article_texts("<p>Note <label><p>Label leak</p></label> tail.</p>") == [
@@ -318,8 +318,8 @@ def test_markup_a_browser_moves_out_of_a_control_counts_where_the_browser_puts_i
 
 
 def test_closing_a_skipped_element_ends_everything_left_open_inside_it() -> None:
-    # Round 5 AGY: an unclosed cell, button or block inside skipped content kept it open,
-    # so every later paragraph was dropped.
+    # An unclosed cell, button, or block inside skipped content must close with it
+    # so later paragraphs are not dropped.
     later = "<p>Visible prose.</p>"
     for skipped in (
         "<template><tr><td>Draft cell</template>",
@@ -332,7 +332,7 @@ def test_closing_a_skipped_element_ends_everything_left_open_inside_it() -> None
 
 
 def test_an_unclosed_paragraph_inside_an_svg_keeps_what_follows_inside_the_svg() -> None:
-    # Round 7: </foreignObject> and </svg> cannot close an open <p> in a browser, so the next
+    # </foreignObject> and </svg> cannot close an open <p> in a browser, so the next
     # paragraph is built inside the icon and is dropped with it.
     assert _article_texts("<svg><foreignObject><p>Icon</foreignObject></svg><p>Inside icon.</p>") == []
 
@@ -349,7 +349,7 @@ def test_an_unclosed_control_inside_a_list_or_cell_ends_with_it() -> None:
 
 
 def test_a_dropped_block_inside_a_list_item_splits_it_like_any_block() -> None:
-    # Round 5 AGY: the text on both sides of a <pre> fused into "command.then".
+    # Text on both sides of a dropped block like <pre> must stay separated rather than fusing.
     assert _article_texts(
         "<ul><li>Run this command.<pre><code>curl /</code></pre>Then check the status.</li></ul>"
     ) == ["run this command", "then check the status"]
@@ -370,7 +370,7 @@ def test_a_self_closing_block_tag_opens_the_block_as_html_does() -> None:
 
 
 def test_replay_extraction_closes_omitted_end_tags_like_prose_extraction() -> None:
-    # Round 5 AGY: the replay steps used plain tag stacks without HTML closing rules.
+    # Replay extraction must apply HTML implicit closing rules rather than plain tag stacks.
     article = extract_article_html(
         "<main><ul><li hidden>Secret<li>Visible item</ul><p>Later prose</p></main>"
     )
@@ -390,7 +390,7 @@ def _replay_texts(replay: str) -> list[str]:
 
 
 def test_a_self_closing_svg_icon_closes_itself_as_in_a_browser() -> None:
-    # Round 6 reviews: <svg/> stayed open and swallowed every later paragraph.
+    # A self-closing <svg/> must not stay open and swallow later paragraphs.
     assert _article_texts('<svg class="icon"/><p>Visible prose.</p>') == ["visible prose"]
     assert _article_texts("<p>Icon <svg/> text.</p><p>Next paragraph.</p>") == [
         "icon text",
@@ -401,7 +401,7 @@ def test_a_self_closing_svg_icon_closes_itself_as_in_a_browser() -> None:
 
 
 def test_end_tags_inside_a_template_never_close_anything_outside_it() -> None:
-    # Round 6 AGY: </td>, </li> or </div> inside a <template> escaped it and leaked its text.
+    # </td>, </li>, or </div> inside a <template> must not escape it or leak its text.
     assert _article_texts(
         "<table><tr><td>Cell <template></td><p>Template leak</p></template> tail.</td></tr></table>"
     ) == ["cell tail"]
@@ -417,8 +417,8 @@ def test_end_tags_inside_a_template_never_close_anything_outside_it() -> None:
 
 
 def test_closing_a_dropped_container_ends_the_controls_left_open_inside_it() -> None:
-    # Round 6 AGY: a second dropped element inside <label>, <template>, <noscript> or <select>
-    # kept the outer one open, so every later paragraph was dropped.
+    # A nested dropped element inside <label>, <template>, <noscript>, or <select>
+    # must not keep the outer container open and drop later paragraphs.
     later = "<p>Visible prose.</p>"
     for skipped in (
         "<label><svg><g></label>",
@@ -431,14 +431,14 @@ def test_closing_a_dropped_container_ends_the_controls_left_open_inside_it() -> 
 
 
 def test_noscript_content_is_raw_text_as_in_a_browser_with_scripts_on() -> None:
-    # Round 6 AGY: </div> inside <noscript> closed the outer block and leaked the fallback text.
+    # </div> inside <noscript> must not close the outer block or leak fallback text.
     assert _article_texts(
         "<div><p>Before <noscript></div><p>Noscript leak</p></noscript> after.</p></div>"
     ) == ["before after"]
 
 
 def test_a_self_closing_block_closes_an_open_hidden_element() -> None:
-    # Round 6 AGY: <h2/>, <li/> and <div/> were ignored while hidden content was open.
+    # Self-closing block tags like <h2/>, <li/>, and <div/> still close an open hidden element.
     assert _article_texts("<p hidden>Draft<h2/>Visible heading</h2>") == ["visible heading"]
     assert _article_texts("<ul><li hidden>Secret<li/>Visible item</ul>") == ["visible item"]
     assert _article_texts("<p hidden>Draft<div/><strong>Visible headline</strong>") == ["visible headline"]
@@ -449,7 +449,7 @@ def test_a_self_closing_block_closes_an_open_hidden_element() -> None:
 
 
 def test_a_hidden_rule_still_splits_the_block_around_it() -> None:
-    # Codex and AGY round 6: <hr hidden> inside a list item fused the sentences on each side.
+    # <hr hidden> inside a list item must still split the sentences on each side.
     assert _article_texts("<ul><li>Run this command.<hr hidden>Then check the status.</li></ul>") == [
         "run this command",
         "then check the status",
@@ -458,8 +458,8 @@ def test_a_hidden_rule_still_splits_the_block_around_it() -> None:
 
 
 def test_replay_cleanup_keeps_the_split_where_it_removes_a_block() -> None:
-    # Codex and AGY round 6: stripping a dropped block from a list item, cell or quote
-    # joined the text on each side, so replay and direct extraction disagreed.
+    # Stripping a dropped block from a list item, cell, or quote must preserve the boundary
+    # so replay and direct extraction produce identical splits.
     for html in (
         "<ul><li>Run this command.<div hidden>Draft</div>Then check the status.</li></ul>",
         "<ul><li>Run this command.<nav><a href='/'>Home</a></nav>Then check the status.</li></ul>",
@@ -471,8 +471,8 @@ def test_replay_cleanup_keeps_the_split_where_it_removes_a_block() -> None:
 
 
 def test_replay_extraction_handles_unclosed_cells_and_titles() -> None:
-    # Round 6 AGY: an unclosed <td> left <main> unfinished, and an unclosed <h1> inside the
-    # markdown body was repeated.
+    # An unclosed <td> must not leave <main> unfinished, and an unclosed <h1> inside
+    # the markdown body must not be repeated.
     assert _replay_texts("<main><table><tr><td>cell") == ["cell"]
     replay = '<main><div class="sl-markdown-content"><h1>Title<p>Body.</p></div></main>'
     assert _replay_texts(replay) == ["title", "body"]
@@ -483,7 +483,7 @@ def test_an_optional_colgroup_end_tag_is_implied_before_the_rows() -> None:
 
 
 def test_stray_end_tags_after_deeply_nested_dropped_content_extract_without_error() -> None:
-    # Codex round 6 / Round 8: iterative walk handles deeply nested dropped subtrees without recursion errors.
+    # Iterative traversal handles deeply nested dropped subtrees without recursion errors.
     html = "<p>First</p><span><svg>" + "<div>" * 8000 + "</span>" * 8000
     assert _article_texts(html) == ["first"]
 

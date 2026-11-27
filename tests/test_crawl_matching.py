@@ -254,7 +254,7 @@ def test_a_one_word_earlier_heading_does_not_cover_words_in_new_headings() -> No
 
 
 def test_one_word_copies_do_not_depend_on_unrelated_earlier_words() -> None:
-    # Round 2 reviews: the first near copy in alphabetical order decided the count.
+    # Near-copy matching must not depend on alphabetical order of earlier sentences.
     # Every near copy covers its other words, so each pair below counts the same.
     later = "<p>We use slow requests now.</p>"
     fast = _one("<p>We use fast requests now.</p><p>We use slow requests today.</p>", later)
@@ -267,7 +267,7 @@ def test_one_word_copies_do_not_depend_on_unrelated_earlier_words() -> None:
 
 
 def test_merging_a_short_sentence_with_an_edited_or_extended_one_counts_the_edits() -> None:
-    # AGY round 2: the merge check ran before edge alignment and gave 4 for each.
+    # Edge alignment must run alongside merge detection so only edited words are counted.
     assert _one(
         "<p>Bots stop. The default timeout is ten seconds.</p>",
         "<p>Bots stop and the default timeout is thirty seconds.</p>",
@@ -283,5 +283,5 @@ def test_merging_a_short_sentence_with_an_edited_or_extended_one_counts_the_edit
 
 
 def test_two_short_sentences_sharing_a_word_do_not_cover_a_three_word_sentence() -> None:
-    # AGY round 3: the two edges of a three-word sentence overlap, so they are not a merge.
+    # The two edges of a three-word sentence overlap, so they do not form a valid merge.
     assert _one("<p>Bots stop.</p><p>Stop now.</p>", "<p>Bots stop now.</p>") == 3

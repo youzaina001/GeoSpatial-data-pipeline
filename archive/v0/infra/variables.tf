@@ -49,7 +49,7 @@ variable "airflow_admin_password" {
 variable "airflow_fernet_key" {
   description = "Fernet key for Airflow encryption"
   type        = string
-  default     = "zTvhk_0YJ2_8q3KN8dkpB7hLxUgI2TZgESfB5n4f4Uk="
+  default     = ""
   sensitive   = true
 }
 

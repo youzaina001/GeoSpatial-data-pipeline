@@ -141,7 +141,6 @@ def copy_bundled_fixtures(repo: Path) -> Path:
         shutil.copytree(
             REPO / "fixtures" / name,
             root / name,
-            ignore=shutil.ignore_patterns(".claude"),
         )
     commit_all(repo)
     return root
